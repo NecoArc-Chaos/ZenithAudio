@@ -453,7 +453,16 @@ class ProjectNotifier extends Notifier<Project> {
   Future<void> removeTrack(String trackId) async {
     _pushUndo();
     _markDirty();
-    await ref.read(audioServiceProvider).unloadTrack(trackId);
+    try {
+      await ref.read(audioServiceProvider).unloadTrack(trackId);
+    } catch (e) {
+      AppLogger.e('Failed to unload track', e);
+      // Roll back undo stack since removal failed
+      _undoStack.removeLast();
+      _redoStack.clear();
+      _isDirty = false;
+      return;
+    }
     final removedName = state.tracks.firstWhere((t) => t.id == trackId).name;
     state = state.copyWith(
       tracks: state.tracks.where((t) => t.id != trackId).toList(),
