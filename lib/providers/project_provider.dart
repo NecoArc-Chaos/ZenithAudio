@@ -223,7 +223,7 @@ class ProjectNotifier extends Notifier<Project> {
       return t;
     }).toList();
     state = serialized.project.copyWith(tracks: updatedTracks);
-    _isDirty = true;
+    _markDirty();
     for (final track in state.tracks) {
       if (track.type == TrackType.audio && track.audioFilePath != null) {
         ref.read(audioServiceProvider).loadTrack(track).then((dur) {
