@@ -236,8 +236,8 @@ class ProjectNotifier extends Notifier<Project> {
     }).toList();
     final oldProjectId = state.id;
     final newId = serialized.project.id;
-    state = serialized.project.copyWith(tracks: updatedTracks);
     _loadingProjectId = newId;
+    state = serialized.project.copyWith(tracks: updatedTracks);
     if (oldProjectId.isNotEmpty) {
       await clearAutoSaveCacheFor(oldProjectId);
     }
@@ -419,8 +419,8 @@ class ProjectNotifier extends Notifier<Project> {
       }).toList();
       final oldProjectId = state.id;
       final newId = serialized.project.id;
-      state = serialized.project.copyWith(tracks: updatedTracks);
       _loadingProjectId = newId;
+      state = serialized.project.copyWith(tracks: updatedTracks);
       if (oldProjectId.isNotEmpty) {
         await clearAutoSaveCacheFor(oldProjectId);
       }
