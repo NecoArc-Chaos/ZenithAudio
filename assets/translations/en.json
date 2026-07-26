@@ -62,6 +62,7 @@
   "transport.pause": "Pause",
   "transport.stop": "Stop",
   "transport.record": "Record",
+  "transport.recordPermissionDenied": "Microphone permission denied",
   "transport.stopRec": "Stop Recording",
   "transport.skipStart": "Skip to Start",
   "transport.skipEnd": "Skip to End",
@@ -70,6 +71,7 @@
   "editor.emptySubtitle": "Supports WAV, MP3, FLAC, AAC, OGG, M4A",
 
   "settings.title": "Settings",
+  "settings": "Settings",
   "settings.general": "General",
   "settings.theme": "Theme",
   "settings.theme.system": "System",
