@@ -209,7 +209,7 @@ class _BrowserTree extends ConsumerWidget {
     if (tab == BrowserTab.projects) {
       // TODO: open project by name/path
       AppLogger.i('Open project: ${item.label}');
-    } else if (tab == BrowserTab.samples && item.label == 'Import Audio...') {
+    } else if (tab == BrowserTab.samples && item.label == 'browser.importAudio'.tr()) {
       final fileService = FileService();
       final result = await fileService.pickAudioFile();
       if (result != null && context.mounted) {
@@ -221,9 +221,25 @@ class _BrowserTree extends ConsumerWidget {
             );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Imported: ${result.name}'), duration: const Duration(seconds: 2)),
+            SnackBar(content: Text('browser.imported'.tr(namedArgs: {'name': result.name})), duration: const Duration(seconds: 2)),
           );
         }
+      }
+    } else if (tab == BrowserTab.presets) {
+      final preset = InstrumentPreset.allPresets.firstWhere(
+        (p) => p.name == item.label,
+        orElse: () => InstrumentPreset.presets.first,
+      );
+      final trackIndex = ref.read(projectProvider).tracks.length + 1;
+      final name = 'Track $trackIndex';
+      ref.read(projectProvider.notifier).addInstrumentTrack(
+            name: name,
+            instrumentName: preset.id,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('browser.addedInstrument'.tr(namedArgs: {'name': preset.name})), duration: const Duration(seconds: 2)),
+        );
       }
     }
   }
@@ -238,23 +254,20 @@ class _BrowserTree extends ConsumerWidget {
         loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
         error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded)],
       );
+    } else if (tab == BrowserTab.presets) {
+      final presets = ref.watch(browserPresetsProvider);
+      allItems = presets
+          .map((p) => _PlaceholderItem(p.$1, p.$2))
+          .toList();
     } else {
-      allItems = switch (tab) {
-        BrowserTab.samples => [
-            _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
-            _PlaceholderItem('Kick', Icons.audiotrack_rounded),
-            _PlaceholderItem('Snare', Icons.audiotrack_rounded),
-            _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
-            _PlaceholderItem('Bass', Icons.audiotrack_rounded),
-            _PlaceholderItem('Synth Pad', Icons.audiotrack_rounded),
-          ],
-        BrowserTab.presets => [
-            _PlaceholderItem('Default.zap', Icons.description_rounded),
-            _PlaceholderItem('Lead 1', Icons.piano_rounded),
-            _PlaceholderItem('Pad 1', Icons.piano_rounded),
-          ],
-        BrowserTab.projects => const [],
-      };
+      allItems = [
+        _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
+        _PlaceholderItem('Kick', Icons.audiotrack_rounded),
+        _PlaceholderItem('Snare', Icons.audiotrack_rounded),
+        _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
+        _PlaceholderItem('Bass', Icons.audiotrack_rounded),
+        _PlaceholderItem('Synth Pad', Icons.audiotrack_rounded),
+      ];
     }
 
     final filtered = query.isEmpty
@@ -264,7 +277,7 @@ class _BrowserTree extends ConsumerWidget {
     if (filtered.isEmpty) {
       return Center(
         child: Text(
-          'No results',
+          'browser.noResults'.tr(),
           style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(128), fontSize: 10),
         ),
       );

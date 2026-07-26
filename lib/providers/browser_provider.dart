@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/instrument.dart';
 
 final browserVisibilityProvider = StateProvider<bool>((ref) => false);
 
@@ -23,4 +24,10 @@ final recentProjectsProvider = FutureProvider<List<String>>((ref) async {
   } catch (_) {
     return [];
   }
+});
+
+final browserPresetsProvider = Provider<List<(String, IconData)>>((ref) {
+  return InstrumentPreset.allPresets
+      .map((p) => (p.name, p.icon))
+      .toList();
 });

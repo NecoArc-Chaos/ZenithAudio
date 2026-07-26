@@ -144,5 +144,9 @@
   "shortcut.redo": "Ctrl+Shift+Z",
   "shortcut.addTrack": "Ctrl+T",
   "shortcut.importAudio": "Ctrl+I",
-  "shortcut.importMidi": "Ctrl+Shift+I"
+  "shortcut.importMidi": "Ctrl+Shift+I",
+  "browser.importAudio": "Import Audio...",
+  "browser.imported": "Imported: ${name}",
+  "browser.addedInstrument": "Added instrument: ${name}",
+  "browser.noResults": "No results",
 }

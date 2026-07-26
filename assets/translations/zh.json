@@ -145,4 +145,8 @@
   "shortcut.addTrack": "Ctrl+T",
   "shortcut.importAudio": "Ctrl+I",
   "shortcut.importMidi": "Ctrl+Shift+I"
+  "browser.importAudio": "导入音频...",
+  "browser.imported": "已导入：${name}",
+  "browser.addedInstrument": "已添加乐器：${name}",
+  "browser.noResults": "无结果"
 }
