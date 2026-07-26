@@ -45,7 +45,7 @@ class AudioToolBar extends ConsumerWidget {
           _TbBtn(
             icon: Icons.folder_open_outlined,
             tooltip: 'Open',
-            onTap: () => ref.read(projectProvider.notifier).openProject(),
+            onTap: () => ref.read(projectProvider.notifier).openProject(context),
           ),
           _TbBtn(
             icon: Icons.save_outlined,
@@ -259,7 +259,7 @@ class AudioToolBar extends ConsumerWidget {
       if (v == null) return;
       switch (v) {
         case 'new': ref.read(projectProvider.notifier).tryNewProject(context);
-        case 'open': ref.read(projectProvider.notifier).openProject();
+        case 'open': ref.read(projectProvider.notifier).openProject(context);
         case 'save': ref.read(projectProvider.notifier).saveProject();
         case 'addAudio':
           final idx = ref.read(projectProvider).tracks.length + 1;

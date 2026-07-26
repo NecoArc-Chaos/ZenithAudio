@@ -99,6 +99,8 @@ class ProjectNotifier extends Notifier<Project> {
     if (_undoStack.isEmpty) return;
     _redoStack.add(_deepClone(state));
     state = _undoStack.removeLast();
+    _markDirty();
+    _cleanupWavCache();
     AppLogger.i('Undo');
   }
 
@@ -106,7 +108,19 @@ class ProjectNotifier extends Notifier<Project> {
     if (_redoStack.isEmpty) return;
     _undoStack.add(_deepClone(state));
     state = _redoStack.removeLast();
+    _markDirty();
+    _cleanupWavCache();
     AppLogger.i('Redo');
+  }
+
+  void _cleanupWavCache() {
+    final activeIds = state.tracks.map((t) => t.id).toSet();
+    final audio = ref.read(audioServiceProvider);
+    for (final id in List.from(audio.cachedTrackIds)) {
+      if (!activeIds.contains(id)) {
+        audio.unloadTrack(id);
+      }
+    }
   }
 
   void _markDirty() => _isDirty = true;
@@ -298,7 +312,7 @@ class ProjectNotifier extends Notifier<Project> {
     }
   }
 
-  Future<void> openProject() async {
+  Future<void> openProject(BuildContext context) async {
     _pushUndo();
     _isDirty = false;
     stopAutoSave();
@@ -328,6 +342,11 @@ class ProjectNotifier extends Notifier<Project> {
       final serialized = await serializer.deserialize(bytes);
       if (serialized == null) {
         AppLogger.e('Failed to deserialize project');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法打开项目：文件损坏或格式不支持')),
+          );
+        }
         return;
       }
 

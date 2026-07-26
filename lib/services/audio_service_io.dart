@@ -275,6 +275,7 @@ class AudioService {
   }
 
   /// Returns the cached WAV path for a track, or null if not cached.
+  Set<String> get cachedTrackIds => Set.from(_wavCache.keys);
   String? getCachedTrackPath(String trackId) => _wavCache[trackId]?.path;
 
   /// Check if track WAV is cached with current notes.
