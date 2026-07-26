@@ -405,6 +405,15 @@ class AudioService {
     tp?.dispose();
     _trackMutes.remove(trackId);
     _trackSolos.remove(trackId);
+
+    // Clean up synthesized WAV temp file if present
+    final cached = _wavCache.remove(trackId);
+    if (cached != null) {
+      try {
+        final f = File(cached.path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
   }
 
   Future<void> unloadAll() async {
@@ -417,11 +426,19 @@ class AudioService {
     _isPlaying = false;
     _completedTracks = 0;
     _totalTracks = 0;
+
+    // Clean up all synthesized WAV temp files
+    for (final cached in _wavCache.values) {
+      try {
+        final f = File(cached.path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    _wavCache.clear();
   }
 
   Future<void> dispose() async {
     await unloadAll();
-    _wavCache.clear();
   }
 }
 
