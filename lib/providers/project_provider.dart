@@ -20,6 +20,13 @@ final projectProvider = NotifierProvider<ProjectNotifier, Project>(
   ProjectNotifier.new,
 );
 
+class _UndoState {
+  final Project project;
+  final String? filePath;
+  final bool isDirty;
+  const _UndoState(this.project, this.filePath, this.isDirty);
+}
+
 class ProjectNotifier extends Notifier<Project> {
   static const _uuid = Uuid();
   static const int _maxUndo = AppConstants.maxUndoSteps;
@@ -30,8 +37,8 @@ class ProjectNotifier extends Notifier<Project> {
   /// Tracks whether there are unsaved changes.
   bool _isDirty = false;
 
-  final List<Project> _undoStack = [];
-  final List<Project> _redoStack = [];
+  final List<_UndoState> _undoStack = [];
+  final List<_UndoState> _redoStack = [];
 
   /// Auto-save timer.
   Timer? _autoSaveTimer;
@@ -90,25 +97,29 @@ class ProjectNotifier extends Notifier<Project> {
   }
 
   void _pushUndo() {
-    _undoStack.add(_deepClone(state));
+    _undoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
     if (_undoStack.length > _maxUndo) _undoStack.removeAt(0);
     _redoStack.clear();
   }
 
   void undo() {
     if (_undoStack.isEmpty) return;
-    _redoStack.add(_deepClone(state));
-    state = _undoStack.removeLast();
-    _markDirty();
+    _redoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
+    final prev = _undoStack.removeLast();
+    state = prev.project;
+    _currentFilePath = prev.filePath;
+    _isDirty = prev.isDirty;
     _cleanupWavCache();
     AppLogger.i('Undo');
   }
 
   void redo() {
     if (_redoStack.isEmpty) return;
-    _undoStack.add(_deepClone(state));
-    state = _redoStack.removeLast();
-    _markDirty();
+    _undoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
+    final next = _redoStack.removeLast();
+    state = next.project;
+    _currentFilePath = next.filePath;
+    _isDirty = next.isDirty;
     _cleanupWavCache();
     AppLogger.i('Redo');
   }
