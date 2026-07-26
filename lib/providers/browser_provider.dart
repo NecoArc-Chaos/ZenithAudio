@@ -33,33 +33,30 @@ final browserPresetsProvider = Provider<List<(String, IconData)>>((ref) {
       .toList();
 });
 
-final browserSamplesProvider = FutureProvider<List<File>>((ref) async {
-  if (kIsWeb) return [];
-  try {
-    final dir = await getApplicationDocumentsDirectory();
-    final samplesDir = Directory('${dir.path}/ZenithAudio/samples');
-    if (!await samplesDir.exists()) return [];
-    return samplesDir
-        .listSync()
-        .where((e) => e is File)
-        .map((e) => File(e.path))
-        .toList();
-  } catch (_) {
-    return [];
-  }
-});
+final selectedSamplesDirProvider = StateProvider<String?>((ref) => null);
+
+Future<List<File>> _listAudioFiles(String dirPath) async {
+  final dir = Directory(dirPath);
+  if (!await dir.exists()) return [];
+  final allowed = <String>{'.wav', '.mp3', '.flac', '.aac', '.ogg', '.m4a'};
+  return dir
+      .listSync()
+      .where((e) => e is File && allowed.contains(e.path.toLowerCase()))
+      .map((e) => File(e.path))
+      .toList();
+}
 
 final browserSamplesProvider = FutureProvider<List<File>>((ref) async {
   if (kIsWeb) return [];
+  final selected = ref.read(selectedSamplesDirProvider);
+  if (selected != null) {
+    return _listAudioFiles(selected);
+  }
   try {
     final dir = await getApplicationDocumentsDirectory();
     final samplesDir = Directory('${dir.path}/ZenithAudio/samples');
     if (!await samplesDir.exists()) return [];
-    return samplesDir
-        .listSync()
-        .where((e) => e is File)
-        .map((e) => File(e.path))
-        .toList();
+    return _listAudioFiles(samplesDir.path);
   } catch (_) {
     return [];
   }

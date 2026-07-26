@@ -309,6 +309,8 @@ class AudioService {
   Set<String> get cachedTrackIds => Set.from(_wavCache.keys);
   String? getCachedTrackPath(String trackId) => _wavCache[trackId]?.path;
 
+  bool isTrackLoaded(String trackId) => _players.containsKey(trackId);
+
   /// Check if track WAV is cached with current notes.
   bool isTrackCached(Track track) {
     if (track.type == TrackType.audio) return track.audioFilePath != null;

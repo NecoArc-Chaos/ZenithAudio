@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/theme_colors.dart';
 import '../../providers/browser_provider.dart';
@@ -39,6 +40,7 @@ class _BrowserHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final selectedDir = ref.watch(selectedSamplesDirProvider);
     return Container(
       height: AppConstants.timelineHeight,
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -62,6 +64,22 @@ class _BrowserHeader extends ConsumerWidget {
             ),
           ),
           const Spacer(),
+          if (selectedDir != null)
+            Tooltip(
+              message: selectedDir,
+              child: Icon(Icons.check_circle_outline_rounded, size: 12, color: AppColors.neonGreen),
+            ),
+          GestureDetector(
+            onTap: () async {
+              final dir = await FilePicker.platform.getDirectoryPath();
+              if (dir != null) {
+                ref.read(selectedSamplesDirProvider.notifier).state = dir;
+                ref.invalidate(browserSamplesProvider);
+              }
+            },
+            child: Icon(Icons.folder_outlined, size: 12, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 4),
           GestureDetector(
             onTap: () => ref.read(browserVisibilityProvider.notifier).state = false,
             child: Icon(Icons.close_rounded, size: 12, color: cs.onSurfaceVariant),

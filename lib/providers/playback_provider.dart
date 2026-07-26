@@ -55,18 +55,34 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
   }
 
   /// Start playback of all tracks.
-  /// [editingTrackId] — if set, the editing instrument track's WAV is
-  /// generated on a background isolate (non-blocking). Other instrument
-  /// tracks show progress while generating.
+  ///
+  /// Uses lazy loading: tracks already in [AudioService] are kept,
+  /// only missing or changed tracks are (re)loaded.
   Future<void> play({String? editingTrackId}) async {
     final audio = ref.read(audioServiceProvider);
     final project = ref.read(projectProvider);
 
-    await audio.unloadAll();
     ref.read(wavGenerationProgressProvider.notifier).state = 0.0;
 
-    // 1. Load audio tracks immediately (no WAV gen needed)
+    // Determine which tracks need loading.
+    final needsLoad = <Track>[];
     for (final track in project.tracks) {
+      final alreadyLoaded = audio.isTrackLoaded(track.id);
+      if (!alreadyLoaded) {
+        needsLoad.add(track);
+      }
+    }
+
+    // Unload tracks that no longer exist in the project.
+    final activeIds = project.tracks.map((t) => t.id).toSet();
+    for (final id in List.from(audio.cachedTrackIds)) {
+      if (!activeIds.contains(id)) {
+        await audio.unloadTrack(id);
+      }
+    }
+
+    // 1. Load missing audio tracks immediately (no WAV gen needed)
+    for (final track in needsLoad) {
       if (track.type == TrackType.audio) {
         if (track.audioFilePath != null && File(track.audioFilePath!).existsSync()) {
           await audio.loadTrackFromPath(
@@ -78,9 +94,9 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       }
     }
 
-    // 2. Prepare instrument tracks
-    final instTracks = project.tracks
-        .where((t) => t.type.isInstrument &&
+    // 2. Prepare instrument tracks that need loading
+    final instTracks = needsLoad
+        .where((t) => t.type == TrackType.instrument &&
             t.instrumentName != null && t.notes.isNotEmpty)
         .toList();
 
