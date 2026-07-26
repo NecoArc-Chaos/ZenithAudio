@@ -61,7 +61,7 @@ class ProjectNotifier extends Notifier<Project> {
       ),
     );
     if (result == 'save') {
-      await saveProject();
+      await saveProject(context);
       return true;
     }
     return result == 'discard';
@@ -248,7 +248,7 @@ class ProjectNotifier extends Notifier<Project> {
 
   // ──── Save / Open ────
 
-  Future<void> saveProject() async {
+  Future<void> saveProject([BuildContext? context]) async {
     try {
       AppLogger.i('Saving project...');
 
@@ -289,6 +289,11 @@ class ProjectNotifier extends Notifier<Project> {
           }
         } catch (e) {
           AppLogger.e('File picker error', e);
+          if (context != null && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('保存失败：无法选择文件位置')),
+            );
+          }
           return;
         }
       }
@@ -320,6 +325,11 @@ class ProjectNotifier extends Notifier<Project> {
       AppLogger.i('Project saved to: $outputPath');
     } catch (e) {
       AppLogger.e('Failed to save project', e);
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存失败：写入文件时发生错误')),
+        );
+      }
     }
   }
 
@@ -634,7 +644,7 @@ class ProjectNotifier extends Notifier<Project> {
         ),
       );
       if (result == 'save') {
-        await saveProject();
+        await saveProject(context);
       } else if (result != 'discard') {
         return; // cancelled
       }

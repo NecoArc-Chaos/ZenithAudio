@@ -52,7 +52,7 @@ class AudioMenuBar extends ConsumerWidget {
                 shortcut: 'shortcut.saveProject'.tr(),
                 onTap: () async {
                   final notifier = ref.read(projectProvider.notifier);
-                  await notifier.saveProject();
+                  await notifier.saveProject(context);
                 },
               ),
               MenuItem.separator(),
