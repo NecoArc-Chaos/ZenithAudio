@@ -245,11 +245,22 @@ class ProjectNotifier extends Notifier<Project> {
     }
   }
 
-  /// Clear auto-save cache after manual save.
+  /// Clear auto-save cache for the current project.
   Future<void> clearAutoSaveCache() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final path = '${dir.path}/.autosave/${state.id}.zap';
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+  }
+
+  /// Clear auto-save cache for a specific project ID.
+  Future<void> clearAutoSaveCacheFor(String projectId) async {
+    if (projectId.isEmpty) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final path = '${dir.path}/.autosave/$projectId.zap';
       final file = File(path);
       if (await file.exists()) await file.delete();
     } catch (_) {}
@@ -390,7 +401,11 @@ class ProjectNotifier extends Notifier<Project> {
         }
         return t;
       }).toList();
+      final oldProjectId = state.id;
       state = serialized.project.copyWith(tracks: updatedTracks);
+      if (oldProjectId.isNotEmpty) {
+        await clearAutoSaveCacheFor(oldProjectId);
+      }
 
       for (final track in state.tracks) {
         if (track.type == TrackType.audio && track.audioFilePath != null) {
@@ -647,6 +662,7 @@ class ProjectNotifier extends Notifier<Project> {
     _isDirty = false;
     stopAutoSave();
     await ref.read(audioServiceProvider).unloadAll();
+    await clearAutoSaveCache();
     _currentFilePath = null;
     state = Project(id: _uuid.v4(), name: 'Untitled');
     AppLogger.i('New project created');
