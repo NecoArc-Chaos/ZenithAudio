@@ -81,7 +81,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
 
     // 2. Prepare instrument tracks
     final instTracks = project.tracks
-        .where((t) => t.type == TrackType.instrument &&
+        .where((t) => t.type.isInstrument &&
             t.instrumentName != null && t.notes.isNotEmpty)
         .toList();
 

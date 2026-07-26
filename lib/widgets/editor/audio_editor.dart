@@ -277,7 +277,7 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
                                                   itemExtent: AppConstants.trackTileHeight,
                                                   itemBuilder: (context, index) {
                                                     final tr = project.tracks[index];
-                                                      if (tr.type == TrackType.instrument) {
+                                                      if (tr.type.isInstrument) {
                                                         return PianoRollTrack(
                                                           track: tr,
                                                           pixelsPerSecond: pps,
