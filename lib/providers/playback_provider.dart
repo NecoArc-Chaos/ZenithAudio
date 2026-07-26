@@ -70,7 +70,8 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       if (track.type == TrackType.audio) {
         if (track.audioFilePath != null && File(track.audioFilePath!).existsSync()) {
           await audio.loadTrackFromPath(
-            track.id, track.audioFilePath!,
+            track.id,
+            track.audioFilePath!,
             volume: track.volume,
             muted: track.isMuted,
           );
@@ -78,14 +79,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       }
     }
 
-    // 2. Determine effective volume for each track (solo/mute)
-    double effectiveVolume(Track t) {
-      final hasSolo = project.hasSoloTrack;
-      if (hasSolo) return t.isSolo ? t.volume : 0.0;
-      return t.isMuted ? 0.0 : t.volume;
-    }
-
-    // 3. Prepare instrument tracks
+    // 2. Prepare instrument tracks
     final instTracks = project.tracks
         .where((t) => t.type == TrackType.instrument &&
             t.instrumentName != null && t.notes.isNotEmpty)
@@ -111,8 +105,12 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     for (final track in otherTracks) {
       final path = await audio.prepareInstrumentTrack(track);
       if (path != null) {
-        final vol = effectiveVolume(track);
-        await audio.loadTrackFromPath(track.id, path, volume: vol, muted: vol == 0);
+        await audio.loadTrackFromPath(
+          track.id,
+          path,
+          volume: track.volume,
+          muted: track.isMuted,
+        );
       }
       done++;
       ref.read(wavGenerationProgressProvider.notifier).state =
@@ -122,14 +120,18 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     // Wait for editing track's WAV
     final editingPath = await editingFuture;
     if (editingPath != null && editingTrack != null) {
-      final vol = effectiveVolume(editingTrack);
-      await audio.loadTrackFromPath(editingTrack.id, editingPath, volume: vol, muted: vol == 0);
+      await audio.loadTrackFromPath(
+        editingTrack.id,
+        editingPath,
+        volume: editingTrack.volume,
+        muted: editingTrack.isMuted,
+      );
     }
 
-    // 4. Ensure all loaded tracks respect solo/mute
+    // 3. Apply solo/mute state to all loaded tracks
     for (final t in project.tracks) {
-      final vol = effectiveVolume(t);
-      audio.updateTrackVolume(t.id, vol);
+      audio.setTrackMute(t.id, t.isMuted);
+      audio.setTrackSolo(t.id, t.isSolo);
     }
 
     ref.read(wavGenerationProgressProvider.notifier).state = 1.0;

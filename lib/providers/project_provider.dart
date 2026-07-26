@@ -401,7 +401,7 @@ class ProjectNotifier extends Notifier<Project> {
         state = state.copyWith(
           tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
         );
-        AppLogger.d('Track "${track.name}" duration: ${dur.toStringAsFixed(1)}s');
+        AppLogger.d('Track \"${track.name}\" duration: ${dur.toStringAsFixed(1)}s');
       });
     }
     AppLogger.i('Added audio track: ${track.name}');
@@ -450,7 +450,7 @@ class ProjectNotifier extends Notifier<Project> {
       }).toList(),
     );
     ref.read(audioServiceProvider).updateTrackVolume(trackId, volume);
-    AppLogger.d('Track "$trackName" volume: ${(volume * 100).toInt()}%');
+    AppLogger.d('Track \"$trackName\" volume: ${(volume * 100).toInt()}%');
   }
 
   void updateTrackPan(String trackId, double pan) {
@@ -498,8 +498,8 @@ class ProjectNotifier extends Notifier<Project> {
         return t;
       }).toList(),
     );
-    _syncVolumes();
-    AppLogger.i('Track "${track.name}" ${newMuted ? "muted" : "unmuted"}');
+    ref.read(audioServiceProvider).setTrackMute(trackId, newMuted);
+    AppLogger.i('Track \"${track.name}\" ${newMuted ? "muted" : "unmuted"}');
   }
 
   void toggleTrackSolo(String trackId) {
@@ -512,19 +512,8 @@ class ProjectNotifier extends Notifier<Project> {
         return t;
       }).toList(),
     );
-    _syncVolumes();
-    AppLogger.i('Track "${track.name}" ${newSolo ? "solo" : "unsolo"}');
-  }
-
-  void _syncVolumes() {
-    final audio = ref.read(audioServiceProvider);
-    final hasSolo = state.hasSoloTrack;
-    for (final t in state.tracks) {
-      final effectiveVol = hasSolo
-          ? (t.isSolo ? t.volume : 0.0)
-          : (t.isMuted ? 0.0 : t.volume);
-      audio.updateTrackVolume(t.id, effectiveVol);
-    }
+    ref.read(audioServiceProvider).setTrackSolo(trackId, newSolo);
+    AppLogger.i('Track \"${track.name}\" ${newSolo ? "solo" : "unsolo"}');
   }
 
   void setTrackAudioFile(String trackId, String filePath) {

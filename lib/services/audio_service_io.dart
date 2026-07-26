@@ -57,6 +57,11 @@ class AudioService {
   int _completedTracks = 0;
   int _totalTracks = 0;
 
+  /// Track state for solo/mute logic. These are keyed by trackId and
+  /// applied uniformly via [_applyEffectiveVolumes].
+  final Map<String, bool> _trackMutes = {};
+  final Map<String, bool> _trackSolos = {};
+
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
 
@@ -65,9 +70,7 @@ class AudioService {
 
   set masterVolume(double v) {
     _masterVolume = v.clamp(0.0, 1.0);
-    for (final tp in _players.values) {
-      tp.player.setVolume((tp.trackVolume * _masterVolume * 100).roundToDouble());
-    }
+    _applyEffectiveVolumes();
   }
 
   DateTime _lastPositionUpdate = DateTime.now();
@@ -88,6 +91,8 @@ class AudioService {
 
       _players[track.id] = tp;
       tp.trackVolume = track.volume;
+      _trackMutes[track.id] = track.isMuted;
+      _trackSolos[track.id] = track.isSolo;
 
       tp.completedSub = player.stream.completed.listen((completed) {
         if (tp._disposed) return;
@@ -232,13 +237,15 @@ class AudioService {
         await player.setRate(_playbackSpeed);
         _players[track.id] = tp;
         tp.trackVolume = track.volume;
+        _trackMutes[track.id] = track.isMuted;
+        _trackSolos[track.id] = track.isSolo;
       } catch (e) {
         tp.dispose();
       }
     }
   }
 
-  /// Load a single track from a file path with given volume/mute.
+  /// Load a single track from a file path with given raw volume and mute state.
   Future<void> loadTrackFromPath(String trackId, String path,
       {double volume = 1.0, bool muted = false}) async {
     await unloadTrack(trackId);
@@ -246,10 +253,12 @@ class AudioService {
     final tp = _TrackPlayer(player);
     try {
       await player.open(Media(Uri.file(path).toString()), play: false);
-      await player.setVolume(muted ? 0 : (volume * _masterVolume * 100).roundToDouble());
+      await player.setVolume((volume * _masterVolume * 100).roundToDouble());
       await player.setRate(_playbackSpeed);
       _players[trackId] = tp;
       tp.trackVolume = volume;
+      _trackMutes[trackId] = muted;
+      _trackSolos[trackId] = false;
 
       tp.completedSub = player.stream.completed.listen((completed) {
         if (tp._disposed) return;
@@ -288,21 +297,6 @@ class AudioService {
     return cached.noteHash == noteHash;
   }
 
-  void updateTrackVolume(String trackId, double volume) {
-    final tp = _players[trackId];
-    if (tp != null) {
-      tp.trackVolume = volume;
-      tp.player.setVolume((volume * _masterVolume * 100).roundToDouble());
-    }
-  }
-
-  void setMute(String trackId, bool muted) {
-    final tp = _players[trackId];
-    if (tp != null) {
-      tp.player.setVolume(muted ? 0 : (tp.trackVolume * _masterVolume * 100).roundToDouble());
-    }
-  }
-
   void setPlaybackSpeed(double speed) {
     _playbackSpeed = speed;
     for (final tp in _players.values) {
@@ -312,8 +306,46 @@ class AudioService {
 
   void updateMasterVolume(double volume) {
     _masterVolume = volume.clamp(0.0, 1.0);
-    for (final tp in _players.values) {
-      tp.player.setVolume((tp.trackVolume * _masterVolume * 100).roundToDouble());
+    _applyEffectiveVolumes();
+  }
+
+  void updateTrackVolume(String trackId, double volume) {
+    final tp = _players[trackId];
+    if (tp != null) {
+      tp.trackVolume = volume;
+    }
+    _applyEffectiveVolumes();
+  }
+
+  void setTrackMute(String trackId, bool muted) {
+    _trackMutes[trackId] = muted;
+    _applyEffectiveVolumes();
+  }
+
+  void setTrackSolo(String trackId, bool solo) {
+    _trackSolos[trackId] = solo;
+    _applyEffectiveVolumes();
+  }
+
+  void _applyEffectiveVolumes() {
+    final hasSolo = _trackSolos.values.any((s) => s);
+    for (final entry in _players.entries) {
+      final trackId = entry.key;
+      final tp = entry.value;
+      if (tp._disposed) continue;
+
+      final rawVol = tp.trackVolume;
+      final isMuted = _trackMutes[trackId] ?? false;
+      final isSolo = _trackSolos[trackId] ?? false;
+
+      double effectiveVol;
+      if (hasSolo) {
+        effectiveVol = isSolo ? rawVol : 0.0;
+      } else {
+        effectiveVol = isMuted ? 0.0 : rawVol;
+      }
+
+      tp.player.setVolume((effectiveVol * _masterVolume * 100).roundToDouble());
     }
   }
 
@@ -322,6 +354,7 @@ class AudioService {
     _isPlaying = true;
     _completedTracks = 0;
     _totalTracks = _players.length;
+    _applyEffectiveVolumes();
     await Future.wait(_players.values.map((tp) {
       if (tp._disposed) return Future.value();
       return tp.player.play();
@@ -370,6 +403,8 @@ class AudioService {
   Future<void> unloadTrack(String trackId) async {
     final tp = _players.remove(trackId);
     tp?.dispose();
+    _trackMutes.remove(trackId);
+    _trackSolos.remove(trackId);
   }
 
   Future<void> unloadAll() async {
@@ -377,6 +412,8 @@ class AudioService {
       tp.dispose();
     }
     _players.clear();
+    _trackMutes.clear();
+    _trackSolos.clear();
     _isPlaying = false;
     _completedTracks = 0;
     _totalTracks = 0;

@@ -18,6 +18,9 @@ class AudioService {
   bool _isPlaying = false;
   double _masterVolume = 1.0;
 
+  final Map<String, bool> _trackMutes = {};
+  final Map<String, bool> _trackSolos = {};
+
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
 
@@ -27,9 +30,7 @@ class AudioService {
 
   set masterVolume(double v) {
     _masterVolume = v.clamp(0.0, 1.0);
-    for (final p in _players.values) {
-      p.element.volume = (_masterVolume * p.volume).toDouble();
-    }
+    _applyEffectiveVolumes();
   }
 
   Future<double> loadTrack(Track track) async {
@@ -46,6 +47,8 @@ class AudioService {
       final dur = element.duration.toDouble();
 
       final tp = _TrackPlayer(element: element, volume: track.volume);
+      _trackMutes[track.id] = track.isMuted;
+      _trackSolos[track.id] = track.isSolo;
 
       tp.positionSub = element.onTimeUpdate.listen((_) {
         onPositionChanged?.call(element.currentTime.toDouble());
@@ -76,10 +79,12 @@ class AudioService {
       final element = html.AudioElement()
         ..src = path
         ..preload = 'auto'
-        ..volume = muted ? 0 : (volume * _masterVolume).toDouble();
+        ..volume = (volume * _masterVolume).toDouble();
 
       await element.onCanPlayThrough.first;
       final tp = _TrackPlayer(element: element, volume: volume);
+      _trackMutes[trackId] = muted;
+      _trackSolos[trackId] = false;
 
       tp.positionSub = element.onTimeUpdate.listen((_) {
         onPositionChanged?.call(element.currentTime.toDouble());
@@ -122,13 +127,6 @@ class AudioService {
     yield 1.0;
   }
 
-  void setMute(String trackId, bool muted) {
-    final tp = _players[trackId];
-    if (tp != null) {
-      tp.element.volume = muted ? 0 : (tp.volume * _masterVolume).toDouble();
-    }
-  }
-
   void setPlaybackSpeed(double speed) {
     for (final p in _players.values) {
       p.element.playbackRate = speed;
@@ -139,20 +137,49 @@ class AudioService {
     final tp = _players[trackId];
     if (tp != null) {
       tp.volume = volume;
-      tp.element.volume = (volume * _masterVolume).toDouble();
+    }
+    _applyEffectiveVolumes();
+  }
+
+  void setTrackMute(String trackId, bool muted) {
+    _trackMutes[trackId] = muted;
+    _applyEffectiveVolumes();
+  }
+
+  void setTrackSolo(String trackId, bool solo) {
+    _trackSolos[trackId] = solo;
+    _applyEffectiveVolumes();
+  }
+
+  void _applyEffectiveVolumes() {
+    final hasSolo = _trackSolos.values.any((s) => s);
+    for (final entry in _players.entries) {
+      final trackId = entry.key;
+      final tp = entry.value;
+      final rawVol = tp.volume;
+      final isMuted = _trackMutes[trackId] ?? false;
+      final isSolo = _trackSolos[trackId] ?? false;
+
+      double effectiveVol;
+      if (hasSolo) {
+        effectiveVol = isSolo ? rawVol : 0.0;
+      } else {
+        effectiveVol = isMuted ? 0.0 : rawVol;
+      }
+
+      tp.element.volume = (effectiveVol * _masterVolume).toDouble();
     }
   }
 
   void updateMasterVolume(double volume) {
     _masterVolume = volume.clamp(0.0, 1.0);
-    for (final p in _players.values) {
-      p.element.volume = (p.volume * _masterVolume).toDouble();
-    }
+    _applyEffectiveVolumes();
   }
 
   Future<void> play() async {
     if (_players.isEmpty) return;
     _isPlaying = true;
+    _applyEffectiveVolumes();
     for (final p in _players.values) {
       await p.element.play();
     }
@@ -204,6 +231,8 @@ class AudioService {
       tp.element.removeAttribute('src');
       tp.element.load();
     }
+    _trackMutes.remove(trackId);
+    _trackSolos.remove(trackId);
   }
 
   Future<void> unloadAll() async {
@@ -215,6 +244,8 @@ class AudioService {
       p.element.load();
     }
     _players.clear();
+    _trackMutes.clear();
+    _trackSolos.clear();
     _isPlaying = false;
   }
 
