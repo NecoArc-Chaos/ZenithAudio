@@ -28,7 +28,24 @@ flutter pub get
 flutter run
 ```
 
-For release builds, see `.github/workflows/build.yml` for platform-specific steps.
+### Android Release Signing
+
+Copy `android/key.properties.example` to `android/key.properties` and fill in your keystore details:
+
+```properties
+storeFile=/path/to/your/upload-keystore.jks
+storePassword=your-keystore-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
+```
+
+Then build a release APK:
+
+```bash
+flutter build apk --release
+```
+
+For more release build options, see `.github/workflows/build.yml`.
 
 ## Project Structure
 

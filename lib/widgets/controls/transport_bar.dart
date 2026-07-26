@@ -95,9 +95,18 @@ class TransportBar extends ConsumerWidget {
                     name: '录音_${DateTime.now().millisecondsSinceEpoch}',
                     audioFilePath: path,
                   );
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('录音失败：无法停止或保存录音')),
+                  );
                 }
               } else {
-                await notifier.startRecording();
+                final success = await notifier.startRecording();
+                if (!success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('录音失败：请检查麦克风权限')),
+                  );
+                }
               }
             },
           ),

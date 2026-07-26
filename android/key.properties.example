@@ -1,0 +1,4 @@
+storeFile=/path/to/your/upload-keystore.jks
+storePassword=your-keystore-password
+keyAlias=your-key-alias
+keyPassword=your-key-password

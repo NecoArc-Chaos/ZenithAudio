@@ -223,7 +223,7 @@ class _AudioClipEditorState extends ConsumerState<AudioClipEditor> {
       var samples = await _readWavFile(originalPath);
       var sourceFile = originalPath;
       if (samples == null) {
-        final converted = await convertToWav(originalPath);
+        final converted = await convertToWav(originalPath, context);
         if (converted != null) {
           sourceFile = converted;
           samples = await _readWavFile(sourceFile);
