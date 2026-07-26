@@ -56,28 +56,34 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
 
   /// Start playback of all tracks.
   ///
-  /// Uses lazy loading: tracks already in [AudioService] are kept,
-  /// only missing or changed tracks are (re)loaded.
+  /// Only loads tracks that should actually play under current solo/mute
+  /// state. Inactive tracks stay unloaded to save memory.
   Future<void> play({String? editingTrackId}) async {
     final audio = ref.read(audioServiceProvider);
     final project = ref.read(projectProvider);
 
     ref.read(wavGenerationProgressProvider.notifier).state = 0.0;
 
-    // Determine which tracks need loading.
-    final needsLoad = <Track>[];
-    for (final track in project.tracks) {
-      final alreadyLoaded = audio.isTrackLoaded(track.id);
-      if (!alreadyLoaded) {
-        needsLoad.add(track);
-      }
-    }
-
     // Unload tracks that no longer exist in the project.
     final activeIds = project.tracks.map((t) => t.id).toSet();
     for (final id in List.from(audio.cachedTrackIds)) {
       if (!activeIds.contains(id)) {
         await audio.unloadTrack(id);
+      }
+    }
+
+    // Determine which tracks should play (solo/mute aware).
+    final hasSolo = project.hasSoloTrack;
+    final tracksToPlay = project.tracks.where((t) {
+      if (hasSolo) return t.isSolo;
+      return !t.isMuted;
+    }).toList();
+
+    // Load only tracks that need to play.
+    final needsLoad = <Track>[];
+    for (final track in tracksToPlay) {
+      if (!audio.isTrackLoaded(track.id)) {
+        needsLoad.add(track);
       }
     }
 
@@ -142,7 +148,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     }
 
     // 3. Apply solo/mute state to all loaded tracks
-    for (final t in project.tracks) {
+    for (final t in tracksToPlay) {
       audio.updateTrackVolume(t.id, t.volume);
       audio.setTrackMute(t.id, t.isMuted);
       audio.setTrackSolo(t.id, t.isSolo);
@@ -163,6 +169,57 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     await ref.read(audioServiceProvider).stop();
     ref.read(playheadPositionProvider.notifier).state = 0;
     state = PlaybackState.stopped;
+  }
+
+  /// Prefetch tracks that are likely to be played soon (e.g., after
+  /// a solo/mute toggle). Does not block playback.
+  Future<void> prefetchTracks(List<Track> tracks) async {
+    final audio = ref.read(audioServiceProvider);
+    final toLoad = tracks.where((t) => !audio.isTrackLoaded(t.id)).toList();
+    if (toLoad.isEmpty) return;
+
+    for (final track in toLoad) {
+      if (track.type == TrackType.audio) {
+        if (track.audioFilePath != null && File(track.audioFilePath!).existsSync()) {
+          await audio.loadTrackFromPath(
+            track.id,
+            track.audioFilePath!,
+            volume: track.volume,
+          );
+        }
+      }
+    }
+
+    final instTracks = toLoad
+        .where((t) => t.type == TrackType.instrument &&
+            t.instrumentName != null && t.notes.isNotEmpty)
+        .toList();
+    for (final track in instTracks) {
+      final path = await audio.prepareInstrumentTrack(track);
+      if (path != null) {
+        await audio.loadTrackFromPath(track.id, path, volume: track.volume);
+      }
+    }
+  }
+
+  /// Release tracks that are not currently playing and have been inactive
+  /// the longest. Called when playback stops to free memory.
+  Future<void> releaseInactiveTracks({int keepCount = 8}) async {
+    final audio = ref.read(audioServiceProvider);
+    final loadedIds = audio.cachedTrackIds.toList();
+    if (loadedIds.length <= keepCount) return;
+
+    // Keep the most recently used tracks.
+    final entries = loadedIds.map((id) {
+      final usage = audio.getTrackLastUsed(id);
+      return MapEntry(id, usage);
+    }).toList();
+    entries.sort((a, b) => a.value.compareTo(b.value));
+
+    final toRelease = entries.take(entries.length - keepCount).map((e) => e.key).toList();
+    for (final id in toRelease) {
+      await audio.unloadTrack(id);
+    }
   }
 
   Future<void> toggle({String? editingTrackId}) async {

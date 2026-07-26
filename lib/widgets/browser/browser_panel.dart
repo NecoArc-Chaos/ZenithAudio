@@ -41,6 +41,7 @@ class _BrowserHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final selectedDir = ref.watch(selectedSamplesDirProvider);
+    final bookmarks = ref.watch(browserBookmarksProvider);
     return Container(
       height: AppConstants.timelineHeight,
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -74,10 +75,85 @@ class _BrowserHeader extends ConsumerWidget {
               final dir = await FilePicker.platform.getDirectoryPath();
               if (dir != null) {
                 ref.read(selectedSamplesDirProvider.notifier).state = dir;
+                await persistSelectedSamplesDir(dir);
                 ref.invalidate(browserSamplesProvider);
               }
             },
             child: Icon(Icons.folder_outlined, size: 12, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () async {
+              if (selectedDir == null) return;
+              final bookmarks = List<String>.from(ref.read(browserBookmarksProvider));
+              if (bookmarks.contains(selectedDir)) {
+                bookmarks.remove(selectedDir);
+              } else {
+                bookmarks.add(selectedDir);
+              }
+              ref.read(browserBookmarksProvider.notifier).state = bookmarks;
+              await persistBrowserBookmarks(bookmarks);
+            },
+            child: Icon(
+              selectedDir != null && bookmarks.contains(selectedDir)
+                  ? Icons.star_rounded
+                  : Icons.star_outline_rounded,
+              size: 12,
+              color: selectedDir != null && bookmarks.contains(selectedDir)
+                  ? AppColors.neonYellow
+                  : cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () async {
+              if (bookmarks.isEmpty) return;
+              final chosen = await showMenu<String>(
+                context: context,
+                position: RelativeRect.fromLTRB(
+                  MediaQuery.of(context).size.width - 200,
+                  AppConstants.timelineHeight,
+                  MediaQuery.of(context).size.width,
+                  AppConstants.timelineHeight + (bookmarks.length * 28.0),
+                ),
+                items: [
+                  ...bookmarks.map((b) {
+                    return PopupMenuItem<String>(
+                      value: b,
+                      child: Row(
+                        children: [
+                          Icon(Icons.folder_rounded, size: 12, color: cs.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              b.split('/').last,
+                              style: TextStyle(fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final list = List<String>.from(ref.read(browserBookmarksProvider));
+                              list.remove(b);
+                              ref.read(browserBookmarksProvider.notifier).state = list;
+                              await persistBrowserBookmarks(list);
+                              if (context.mounted) Navigator.of(context).pop();
+                            },
+                            child: Icon(Icons.close_rounded, size: 10, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              );
+              if (chosen != null) {
+                ref.read(selectedSamplesDirProvider.notifier).state = chosen;
+                await persistSelectedSamplesDir(chosen);
+                ref.invalidate(browserSamplesProvider);
+              }
+            },
+            child: Icon(Icons.bookmark_outline_rounded, size: 12, color: cs.onSurfaceVariant),
           ),
           const SizedBox(width: 4),
           GestureDetector(

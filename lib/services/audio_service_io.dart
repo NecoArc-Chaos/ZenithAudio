@@ -62,6 +62,8 @@ class AudioService {
   /// applied uniformly via [_applyEffectiveVolumes].
   final Map<String, bool> _trackMutes = {};
   final Map<String, bool> _trackSolos = {};
+  final Map<String, DateTime> _trackUsage = {};
+  static const int _maxLoadedTracks = 16;
 
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
@@ -195,6 +197,16 @@ class AudioService {
     return filePath;
   }
 
+  void _enforceLoadedTrackLimit() {
+    if (_players.length < _maxLoadedTracks) return;
+    final sorted = _trackUsage.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final toEvict = sorted.take(_players.length - _maxLoadedTracks + 1);
+    for (final entry in toEvict) {
+      unloadTrack(entry.key);
+    }
+  }
+
   void _evictOldestWavIfNeeded() {
     if (_wavCache.length < _maxWavCache) return;
     final oldest = _wavCache.entries.reduce((a, b) =>
@@ -266,6 +278,7 @@ class AudioService {
   Future<void> loadTrackFromPath(String trackId, String path,
       {double volume = 1.0}) async {
     await unloadTrack(trackId);
+    _enforceLoadedTrackLimit();
     final player = Player();
     final tp = _TrackPlayer(player);
     try {
@@ -276,6 +289,7 @@ class AudioService {
       tp.trackVolume = volume;
       _trackMutes[trackId] = false;
       _trackSolos[trackId] = false;
+      _trackUsage[trackId] = DateTime.now();
 
       tp.completedSub = player.stream.completed.listen((completed) {
         if (tp._disposed) return;
@@ -306,6 +320,8 @@ class AudioService {
   String? getCachedTrackPath(String trackId) => _wavCache[trackId]?.path;
 
   bool isTrackLoaded(String trackId) => _players.containsKey(trackId);
+
+  DateTime? getTrackLastUsed(String trackId) => _trackUsage[trackId];
 
   /// Check if track WAV is cached with current notes.
   bool isTrackCached(Track track) {
@@ -421,6 +437,7 @@ class AudioService {
     tp?.dispose();
     _trackMutes.remove(trackId);
     _trackSolos.remove(trackId);
+    _trackUsage.remove(trackId);
 
     // Clean up synthesized WAV temp file if present
     final cached = _wavCache.remove(trackId);
