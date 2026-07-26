@@ -43,6 +43,9 @@ class ProjectNotifier extends Notifier<Project> {
   /// Auto-save timer.
   Timer? _autoSaveTimer;
 
+  /// Guards async track-loading callbacks from stale project loads.
+  String? _loadingProjectId;
+
   bool get isDirty => _isDirty;
 
   /// Confirm discard if dirty. Returns true if user confirms discard/cancel.
@@ -231,11 +234,18 @@ class ProjectNotifier extends Notifier<Project> {
       }
       return t;
     }).toList();
+    final oldProjectId = state.id;
+    final newId = serialized.project.id;
     state = serialized.project.copyWith(tracks: updatedTracks);
+    _loadingProjectId = newId;
+    if (oldProjectId.isNotEmpty) {
+      await clearAutoSaveCacheFor(oldProjectId);
+    }
     _markDirty();
     for (final track in state.tracks) {
       if (track.type == TrackType.audio && track.audioFilePath != null) {
         ref.read(audioServiceProvider).loadTrack(track).then((dur) {
+          if (_loadingProjectId != newId) return;
           final updated = track.copyWith(duration: dur);
           state = state.copyWith(
             tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
@@ -402,7 +412,9 @@ class ProjectNotifier extends Notifier<Project> {
         return t;
       }).toList();
       final oldProjectId = state.id;
+      final newId = serialized.project.id;
       state = serialized.project.copyWith(tracks: updatedTracks);
+      _loadingProjectId = newId;
       if (oldProjectId.isNotEmpty) {
         await clearAutoSaveCacheFor(oldProjectId);
       }
@@ -410,6 +422,7 @@ class ProjectNotifier extends Notifier<Project> {
       for (final track in state.tracks) {
         if (track.type == TrackType.audio && track.audioFilePath != null) {
           audioService.loadTrack(track).then((dur) {
+            if (_loadingProjectId != newId) return;
             final updated = track.copyWith(duration: dur);
             state = state.copyWith(
               tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
