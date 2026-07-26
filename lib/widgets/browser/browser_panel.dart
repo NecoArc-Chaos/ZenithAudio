@@ -31,9 +31,11 @@ class BrowserPanel extends ConsumerWidget {
   }
 }
 
-class _BrowserHeader extends StatelessWidget {
+class _BrowserHeader extends ConsumerWidget {
+  const _BrowserHeader();
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       height: AppConstants.timelineHeight,
@@ -59,10 +61,7 @@ class _BrowserHeader extends StatelessWidget {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () => context
-                .findAncestorWidgetOfExactType<ConsumerWidget>() == null
-                ? null
-                : null,
+            onTap: () => ref.read(browserVisibilityProvider.notifier).state = false,
             child: Icon(Icons.close_rounded, size: 12, color: cs.onSurfaceVariant),
           ),
         ],
@@ -126,19 +125,33 @@ class _BrowserTabs extends ConsumerWidget {
   }
 }
 
-class _BrowserContent extends ConsumerWidget {
+class _BrowserContent extends ConsumerStatefulWidget {
   const _BrowserContent();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BrowserContent> createState() => _BrowserContentState();
+}
+
+class _BrowserContentState extends ConsumerState<_BrowserContent> {
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tab = ref.watch(browserTabProvider);
+    final query = _searchCtrl.text.trim().toLowerCase();
 
     return Container(
       color: Colors.black.withAlpha(26),
       child: Column(
         children: [
-          _BrowserSearchBar(),
-          Expanded(child: _BrowserTree(tab: tab)),
+          _BrowserSearchBar(controller: _searchCtrl),
+          Expanded(child: _BrowserTree(tab: tab, query: query)),
         ],
       ),
     );
@@ -146,6 +159,9 @@ class _BrowserContent extends ConsumerWidget {
 }
 
 class _BrowserSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  const _BrowserSearchBar({required this.controller});
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -153,6 +169,7 @@ class _BrowserSearchBar extends StatelessWidget {
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: TextField(
+        controller: controller,
         style: TextStyle(color: cs.onSurface, fontSize: 10),
         decoration: InputDecoration(
           isDense: true,
@@ -174,11 +191,12 @@ class _BrowserSearchBar extends StatelessWidget {
 
 class _BrowserTree extends ConsumerWidget {
   final BrowserTab tab;
-  const _BrowserTree({required this.tab});
+  final String query;
+  const _BrowserTree({required this.tab, required this.query});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placeholderItems = switch (tab) {
+    final allItems = switch (tab) {
       BrowserTab.samples => [
           _PlaceholderItem('Kick', Icons.audiotrack_rounded),
           _PlaceholderItem('Snare', Icons.audiotrack_rounded),
@@ -197,10 +215,23 @@ class _BrowserTree extends ConsumerWidget {
         ],
     };
 
+    final filtered = query.isEmpty
+        ? allItems
+        : allItems.where((item) => item.label.toLowerCase().contains(query)).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text(
+          'No results',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(128), fontSize: 10),
+        ),
+      );
+    }
+
     return ListView.builder(
-      itemCount: placeholderItems.length,
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final item = placeholderItems[index];
+        final item = filtered[index];
         return _BrowserListItem(
           icon: item.icon,
           label: item.label,
