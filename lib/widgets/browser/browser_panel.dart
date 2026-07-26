@@ -198,13 +198,13 @@ class _BrowserSearchBar extends StatelessWidget {
   }
 }
 
-class _BrowserTree extends ConsumerWidget {
+class _BrowserTree extends StatelessWidget {
   final BrowserTab tab;
   final String query;
   const _BrowserTree({required this.tab, required this.query});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final allItems = switch (tab) {
       BrowserTab.samples => [
           _PlaceholderItem('Kick', Icons.audiotrack_rounded),
