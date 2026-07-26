@@ -129,12 +129,10 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     }
 
     // 3. Apply solo/mute state to all loaded tracks
-    final hasSolo = project.hasSoloTrack;
     for (final t in project.tracks) {
-      final effectiveVol = hasSolo
-          ? (t.isSolo ? t.volume : 0.0)
-          : (t.isMuted ? 0.0 : t.volume);
-      audio.updateTrackVolume(t.id, effectiveVol);
+      audio.updateTrackVolume(t.id, t.volume);
+      audio.setTrackMute(t.id, t.isMuted);
+      audio.setTrackSolo(t.id, t.isSolo);
     }
 
     ref.read(wavGenerationProgressProvider.notifier).state = 1.0;
