@@ -15,7 +15,6 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 class AudioService {
   final Map<String, _TrackPlayer> _players = {};
   final Map<String, String> _cachedPaths = {};
-  bool _isPlaying = false;
   double _masterVolume = 1.0;
 
   final Map<String, bool> _trackMutes = {};
@@ -24,7 +23,6 @@ class AudioService {
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
 
-  bool get isPlaying => _isPlaying;
 
   double get masterVolume => _masterVolume;
 
@@ -58,7 +56,6 @@ class AudioService {
         final allEnded =
             _players.values.every((p) => p.element.ended || p.element.paused);
         if (allEnded) {
-          _isPlaying = false;
           onCompleted?.call();
         }
       });
@@ -92,7 +89,6 @@ class AudioService {
       tp.endedSub = element.onEnded.listen((_) {
         _players.remove(trackId);
         if (_players.isEmpty) {
-          _isPlaying = false;
           onCompleted?.call();
         }
       });
@@ -178,7 +174,6 @@ class AudioService {
 
   Future<void> play() async {
     if (_players.isEmpty) return;
-    _isPlaying = true;
     _applyEffectiveVolumes();
     for (final p in _players.values) {
       await p.element.play();
@@ -202,14 +197,12 @@ class AudioService {
   }
 
   Future<void> pause() async {
-    _isPlaying = false;
     for (final p in _players.values) {
       p.element.pause();
     }
   }
 
   Future<void> stop() async {
-    _isPlaying = false;
     for (final p in _players.values) {
       p.element.pause();
       p.element.currentTime = 0;
@@ -246,7 +239,6 @@ class AudioService {
     _players.clear();
     _trackMutes.clear();
     _trackSolos.clear();
-    _isPlaying = false;
   }
 
   String? getCachedTrackPath(String trackId) => _cachedPaths[trackId];

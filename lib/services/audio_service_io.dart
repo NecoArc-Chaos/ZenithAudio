@@ -53,7 +53,6 @@ class AudioService {
   final Map<String, _TrackPlayer> _players = {};
   final Map<String, _WavCache> _wavCache = {};
   static const int _maxWavCache = 8;
-  bool _isPlaying = false;
   double _masterVolume = 1.0;
   double _playbackSpeed = 1.0;
   int _completedTracks = 0;
@@ -67,7 +66,6 @@ class AudioService {
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
 
-  bool get isPlaying => _isPlaying;
   double get masterVolume => _masterVolume;
 
   set masterVolume(double v) {
@@ -101,7 +99,6 @@ class AudioService {
         if (completed) {
           _completedTracks++;
           if (_completedTracks >= _totalTracks) {
-            _isPlaying = false;
             onCompleted?.call();
           }
         }
@@ -285,7 +282,6 @@ class AudioService {
         if (completed) {
           _completedTracks++;
           if (_completedTracks >= _totalTracks) {
-            _isPlaying = false;
             onCompleted?.call();
           }
         }
@@ -374,7 +370,6 @@ class AudioService {
 
   Future<void> play() async {
     if (_players.isEmpty) return;
-    _isPlaying = true;
     _completedTracks = 0;
     _totalTracks = _players.length;
     _applyEffectiveVolumes();
@@ -402,14 +397,12 @@ class AudioService {
   }
 
   Future<void> pause() async {
-    _isPlaying = false;
     for (final tp in _players.values) {
       if (!tp._disposed) tp.player.pause();
     }
   }
 
   Future<void> stop() async {
-    _isPlaying = false;
     for (final tp in _players.values) {
       if (!tp._disposed) tp.player.stop();
     }
@@ -446,7 +439,6 @@ class AudioService {
     _players.clear();
     _trackMutes.clear();
     _trackSolos.clear();
-    _isPlaying = false;
     _completedTracks = 0;
     _totalTracks = 0;
 

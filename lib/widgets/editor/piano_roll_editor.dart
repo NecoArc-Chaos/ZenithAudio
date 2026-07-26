@@ -512,7 +512,8 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
                       playPos: isPlaying ? playhead : null,
                       playheadColor: cs.primary,
                       scalePcs: _scalePitchClasses(project.keySignature),
-                    selectionRect: _selectionRect,
+                      selectionRect: _selectionRect,
+                      scrollOffset: _gridVScrollCtrl.hasClients ? _gridVScrollCtrl.offset : 0.0,
                     ),
                   ),
                 ),
@@ -927,6 +928,7 @@ class _PianoRollEditorPainter extends CustomPainter {
   final Color playheadColor;
   final Set<int> scalePcs;
   final Rect? selectionRect;
+  final double scrollOffset;
 
   _PianoRollEditorPainter({
     required this.notes,
@@ -948,13 +950,22 @@ class _PianoRollEditorPainter extends CustomPainter {
     required this.playheadColor,
     this.scalePcs = const {},
     this.selectionRect,
+    required this.scrollOffset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..strokeWidth = 0.5;
+    final visibleTop = scrollOffset;
+    final visibleBottom = scrollOffset + size.height;
 
-    for (int p = minNote; p <= maxNote; p++) {
+    // Cull background rows outside visible area
+    final firstVisiblePitch = _maxNote - (visibleBottom / noteRowHeight).ceil();
+    final lastVisiblePitch = _maxNote - (visibleTop / noteRowHeight).floor();
+    final startP = max(minNote, firstVisiblePitch);
+    final endP = min(maxNote, lastVisiblePitch);
+
+    for (int p = startP; p <= endP; p++) {
       final pc = p % 12;
       final inScale = scalePcs.contains(pc);
       final isTonic = scalePcs.isNotEmpty && pc == scalePcs.first;
@@ -978,14 +989,15 @@ class _PianoRollEditorPainter extends CustomPainter {
       final isBar = (t / barSec).round() * barSec == t && t > 0;
       paint.color = isBar ? barColor : beatColor;
       paint.strokeWidth = isBar ? 1.5 : 0.5;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      canvas.drawLine(Offset(x, visibleTop), Offset(x, visibleBottom), paint);
     }
 
     paint.strokeWidth = 0.5;
     paint.color = gridColor;
-    for (int i = 0; i <= (maxNote - minNote); i++) {
+    for (int i = startP; i <= endP; i++) {
       if (i % 12 == 0) continue;
-      canvas.drawLine(Offset(0, i * noteRowHeight), Offset(size.width, i * noteRowHeight), paint);
+      final y = _pitchToY(i);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
 
     for (final r in ghostRects) {
@@ -999,7 +1011,7 @@ class _PianoRollEditorPainter extends CustomPainter {
 
     for (int i = 0; i < notes.length; i++) {
       final n = notes[i];
-      if (n.pitch < minNote || n.pitch > maxNote) continue;
+      if (n.pitch < startP || n.pitch > endP) continue;
 
       final x = n.startTime * pps;
       final w = n.duration * pps;
@@ -1047,7 +1059,7 @@ class _PianoRollEditorPainter extends CustomPainter {
       final phx = playPos! * pps;
       paint.color = playheadColor;
       paint.strokeWidth = 2;
-      canvas.drawLine(Offset(phx, 0), Offset(phx, size.height), paint);
+      canvas.drawLine(Offset(phx, visibleTop), Offset(phx, visibleBottom), paint);
     }
   }
 
@@ -1058,6 +1070,7 @@ class _PianoRollEditorPainter extends CustomPainter {
       oldDelegate.notes != notes ||
       oldDelegate.pps != pps ||
       oldDelegate.noteRowHeight != noteRowHeight ||
+      oldDelegate.scrollOffset != scrollOffset ||
       oldDelegate.selectedIndices != selectedIndices ||
       oldDelegate.dragNoteIndex != dragNoteIndex ||
       oldDelegate.ghostRects != ghostRects ||
