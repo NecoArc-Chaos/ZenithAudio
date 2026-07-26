@@ -506,9 +506,11 @@ class ProjectNotifier extends Notifier<Project> {
     } catch (e) {
       AppLogger.e('Failed to unload track', e);
       // Roll back undo stack since removal failed
-      _undoStack.removeLast();
+      if (_undoStack.isNotEmpty) {
+        final prev = _undoStack.removeLast();
+        _isDirty = prev.isDirty;
+      }
       _redoStack.clear();
-      _isDirty = false;
       return;
     }
     final removedName = state.tracks.firstWhere((t) => t.id == trackId).name;
