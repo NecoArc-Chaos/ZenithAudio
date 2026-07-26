@@ -136,7 +136,16 @@ class _BrowserContentState extends ConsumerState<_BrowserContent> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
   void dispose() {
+    _searchCtrl.removeListener(() {});
     _searchCtrl.dispose();
     super.dispose();
   }

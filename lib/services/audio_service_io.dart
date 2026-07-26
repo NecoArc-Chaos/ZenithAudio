@@ -130,6 +130,7 @@ class AudioService {
       AppLogger.d('loadTrack: ${dur.toStringAsFixed(2)}s');
       return dur;
     } catch (e) {
+      AppLogger.e('Failed to load track ${track.id}: ${track.audioFilePath}', e);
       tp.dispose();
       _players.remove(track.id);
       return 0;
@@ -240,6 +241,7 @@ class AudioService {
         _trackMutes[track.id] = track.isMuted;
         _trackSolos[track.id] = track.isSolo;
       } catch (e) {
+        AppLogger.e('Failed to load track ${track.id} in loadTracks', e);
         tp.dispose();
       }
     }
@@ -280,6 +282,7 @@ class AudioService {
       });
       _totalTracks++;
     } catch (e) {
+      AppLogger.e('Failed to load track from path $path', e);
       tp.dispose();
     }
   }
