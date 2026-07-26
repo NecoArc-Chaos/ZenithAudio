@@ -69,6 +69,7 @@
 
   "editor.emptyTitle": "导入音频文件开始编辑",
   "editor.emptySubtitle": "支持 WAV, MP3, FLAC, AAC, OGG, M4A",
+  "browser.importAudio": "导入音频...",
 
   "settings.title": "设置",
   "settings": "设置",

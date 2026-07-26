@@ -69,6 +69,7 @@
 
   "editor.emptyTitle": "Import audio to start editing",
   "editor.emptySubtitle": "Supports WAV, MP3, FLAC, AAC, OGG, M4A",
+  "browser.importAudio": "Import Audio...",
 
   "settings.title": "Settings",
   "settings": "Settings",

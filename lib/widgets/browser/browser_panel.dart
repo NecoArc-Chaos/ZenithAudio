@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/theme_colors.dart';
 import '../../providers/browser_provider.dart';
+import '../../providers/project_provider.dart';
+import '../../services/file_service.dart';
 
 class BrowserPanel extends ConsumerWidget {
   const BrowserPanel({super.key});
@@ -203,6 +205,29 @@ class _BrowserTree extends ConsumerWidget {
   final String query;
   const _BrowserTree({required this.tab, required this.query});
 
+  Future<void> _onItemTap(BuildContext context, WidgetRef ref, _PlaceholderItem item) async {
+    if (tab == BrowserTab.projects) {
+      // TODO: open project by name/path
+      AppLogger.i('Open project: ${item.label}');
+    } else if (tab == BrowserTab.samples && item.label == 'Import Audio...') {
+      final fileService = FileService();
+      final result = await fileService.pickAudioFile();
+      if (result != null && context.mounted) {
+        final trackIndex = ref.read(projectProvider).tracks.length + 1;
+        final name = 'track.defaultName'.tr(namedArgs: {'n': '$trackIndex'});
+        ref.read(projectProvider.notifier).addTrack(
+              name: name,
+              audioFilePath: result.audioSource,
+            );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Imported: ${result.name}'), duration: const Duration(seconds: 2)),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     List<_PlaceholderItem> allItems;
@@ -216,6 +241,7 @@ class _BrowserTree extends ConsumerWidget {
     } else {
       allItems = switch (tab) {
         BrowserTab.samples => [
+            _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
             _PlaceholderItem('Kick', Icons.audiotrack_rounded),
             _PlaceholderItem('Snare', Icons.audiotrack_rounded),
             _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
@@ -251,12 +277,7 @@ class _BrowserTree extends ConsumerWidget {
         return _BrowserListItem(
           icon: item.icon,
           label: item.label,
-          onTap: () {
-            if (tab == BrowserTab.projects) {
-              // TODO: open project by name/path
-              AppLogger.i('Open project: ${item.label}');
-            }
-          },
+          onTap: () => _onItemTap(context, ref, item),
         );
       },
     );
