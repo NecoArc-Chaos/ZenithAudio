@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import '../models/instrument.dart';
 import '../core/utils/logger.dart';
+import 'synth_service.dart';
 
 final audioServiceProvider = Provider<AudioService>((ref) {
   final service = AudioService();
@@ -101,7 +102,19 @@ class AudioService {
       {bool useIsolate = false}) async {
     if (track.type == TrackType.audio) return track.audioFilePath;
     if (track.instrumentName == null || track.notes.isEmpty) return null;
-    return _cachedPaths[track.id]; // Web: no offline WAV gen
+
+    final cached = _cachedPaths[track.id];
+    if (cached != null) return cached;
+
+    final synth = SynthService();
+    final result = await synth.renderToFile(
+      notes: track.notes,
+      instrumentName: track.instrumentName!,
+    );
+    if (result.path.isNotEmpty) {
+      _cachedPaths[track.id] = result.path;
+    }
+    return result.path.isEmpty ? null : result.path;
   }
 
   Stream<double> prepareTracks(List<Track> tracks,
