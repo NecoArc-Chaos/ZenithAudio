@@ -108,7 +108,11 @@ class ProjectSerializer {
 
       for (final file in archive.files) {
         if (file.isFile) {
-          final dest = File('${extractDir.path}/${file.name}');
+          final relativePath = file.name.replaceAll('\\', '/');
+          final segments = relativePath.split('/').where((s) => s.isNotEmpty && s != '..').toList();
+          if (segments.isEmpty) continue;
+          final safeName = segments.join('/');
+          final dest = File('${extractDir.path}/$safeName');
           await dest.create(recursive: true);
           await dest.writeAsBytes(file.content.toList());
         }

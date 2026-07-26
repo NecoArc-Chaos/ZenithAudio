@@ -201,13 +201,22 @@ class ProjectNotifier extends Notifier<Project> {
       if (recover == true && files.isNotEmpty && context.mounted) {
         // Open the most recent auto-save
         final newest = files.reduce((a, b) =>
-          File(a.path).statSync().modified.isAfter(File(b.path).statSync().modified) ? a : b);
-        final bytes = await File(newest.path).readAsBytes();
-        final serializer = ProjectSerializer();
-        final serialized = await serializer.deserialize(bytes);
-        if (serialized != null && context.mounted) {
-          final notifier = ref.read(projectProvider.notifier);
-          await notifier._loadSerialized(serialized);
+            File(a.path).statSync().modified.isAfter(File(b.path).statSync().modified) ? a : b);
+        try {
+          final bytes = await File(newest.path).readAsBytes();
+          final serializer = ProjectSerializer();
+          final serialized = await serializer.deserialize(bytes);
+          if (serialized != null && context.mounted) {
+            final notifier = ref.read(projectProvider.notifier);
+            await notifier._loadSerialized(serialized);
+          }
+        } catch (e) {
+          AppLogger.e('Failed to recover auto-save', e);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('恢复自动保存失败：文件可能已损坏')),
+            );
+          }
         }
       }
     } catch (_) {}
@@ -397,6 +406,11 @@ class ProjectNotifier extends Notifier<Project> {
       AppLogger.i('Project loaded: ${state.name}');
     } catch (e) {
       AppLogger.e('Failed to open project', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('打开项目时发生未知错误')),
+        );
+      }
     }
   }
 
