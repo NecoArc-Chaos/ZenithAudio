@@ -163,6 +163,7 @@ class ProjectSerializer {
 
     return {
       'version': AppConstants.projectFormatVersion,
+      'id': project.id,
       'name': project.name,
       'sampleRate': project.sampleRate,
       'timeSignatureNumerator': project.timeSignatureNumerator,
@@ -181,6 +182,7 @@ class ProjectSerializer {
       throw Exception('Project requires a newer version of the app');
     }
 
+    final id = info['id'] as String? ?? '';
     final name = info['name'] as String? ?? 'Untitled';
     final sampleRate = (info['sampleRate'] as num?)?.toDouble() ?? 44100;
     final tracksJson = info['tracks'] as List<dynamic>? ?? [];
@@ -211,7 +213,7 @@ class ProjectSerializer {
     }).toList();
 
     return Project(
-      id: '',
+      id: id,
       name: name,
       tracks: tracks,
       sampleRate: sampleRate,

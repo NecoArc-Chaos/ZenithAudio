@@ -320,9 +320,10 @@ class AudioService {
     _isPlaying = true;
     _completedTracks = 0;
     _totalTracks = _players.length;
-    for (final tp in _players.values) {
-      if (!tp._disposed) tp.player.play();
-    }
+    await Future.wait(_players.values.map((tp) {
+      if (tp._disposed) return Future.value();
+      return tp.player.play();
+    }));
   }
 
   /// Play a single track without affecting other tracks' state.
@@ -358,9 +359,10 @@ class AudioService {
 
   Future<void> seekTo(double seconds) async {
     final duration = Duration(milliseconds: (seconds * 1000).round());
-    for (final tp in _players.values) {
-      if (!tp._disposed) tp.player.seek(duration);
-    }
+    await Future.wait(_players.values.map((tp) {
+      if (tp._disposed) return Future.value();
+      return tp.player.seek(duration);
+    }));
   }
 
   Future<void> unloadTrack(String trackId) async {
