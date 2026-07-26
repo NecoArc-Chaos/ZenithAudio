@@ -73,7 +73,6 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
             track.id,
             track.audioFilePath!,
             volume: track.volume,
-            muted: track.isMuted,
           );
         }
       }
@@ -109,7 +108,6 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
           track.id,
           path,
           volume: track.volume,
-          muted: track.isMuted,
         );
       }
       done++;
@@ -124,7 +122,6 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
         editingTrack.id,
         editingPath,
         volume: editingTrack.volume,
-        muted: editingTrack.isMuted,
       );
     }
 

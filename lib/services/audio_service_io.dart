@@ -247,9 +247,9 @@ class AudioService {
     }
   }
 
-  /// Load a single track from a file path with given raw volume and mute state.
+  /// Load a single track from a file path with given raw volume.
   Future<void> loadTrackFromPath(String trackId, String path,
-      {double volume = 1.0, bool muted = false}) async {
+      {double volume = 1.0}) async {
     await unloadTrack(trackId);
     final player = Player();
     final tp = _TrackPlayer(player);
@@ -259,7 +259,7 @@ class AudioService {
       await player.setRate(_playbackSpeed);
       _players[trackId] = tp;
       tp.trackVolume = volume;
-      _trackMutes[trackId] = muted;
+      _trackMutes[trackId] = false;
       _trackSolos[trackId] = false;
 
       tp.completedSub = player.stream.completed.listen((completed) {
