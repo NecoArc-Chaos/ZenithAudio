@@ -34,18 +34,25 @@ class WavEncoder {
 class _DataWriter {
   final List<int> _data;
   int _offset = 0;
-
   _DataWriter(int size) : _data = List.filled(size, 0);
 
   Uint8List get bytes => Uint8List.fromList(_data);
 
+  void _checkBounds(int needed) {
+    if (_offset + needed > _data.length) {
+      throw StateError('DataWriter overflow: $_offset + $needed > ${_data.length}');
+    }
+  }
+
   void writeString(String s) {
+    _checkBounds(s.length);
     for (int i = 0; i < s.length; i++) {
       _data[_offset++] = s.codeUnitAt(i);
     }
   }
 
   void writeInt32(int value) {
+    _checkBounds(4);
     _data[_offset++] = value & 0xFF;
     _data[_offset++] = (value >> 8) & 0xFF;
     _data[_offset++] = (value >> 16) & 0xFF;
@@ -53,7 +60,9 @@ class _DataWriter {
   }
 
   void writeInt16(int value) {
+    _checkBounds(2);
     _data[_offset++] = value & 0xFF;
     _data[_offset++] = (value >> 8) & 0xFF;
   }
+}
 }
