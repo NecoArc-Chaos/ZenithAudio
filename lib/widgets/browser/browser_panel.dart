@@ -198,31 +198,38 @@ class _BrowserSearchBar extends StatelessWidget {
   }
 }
 
-class _BrowserTree extends StatelessWidget {
+class _BrowserTree extends ConsumerWidget {
   final BrowserTab tab;
   final String query;
   const _BrowserTree({required this.tab, required this.query});
 
   @override
-  Widget build(BuildContext context) {
-    final allItems = switch (tab) {
-      BrowserTab.samples => [
-          _PlaceholderItem('Kick', Icons.audiotrack_rounded),
-          _PlaceholderItem('Snare', Icons.audiotrack_rounded),
-          _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
-          _PlaceholderItem('Bass', Icons.audiotrack_rounded),
-          _PlaceholderItem('Synth Pad', Icons.audiotrack_rounded),
-        ],
-      BrowserTab.presets => [
-          _PlaceholderItem('Default.zap', Icons.description_rounded),
-          _PlaceholderItem('Lead 1', Icons.piano_rounded),
-          _PlaceholderItem('Pad 1', Icons.piano_rounded),
-        ],
-      BrowserTab.projects => [
-          _PlaceholderItem('My Song.zap', Icons.folder_rounded),
-          _PlaceholderItem('Beat Idea.zap', Icons.folder_rounded),
-        ],
-    };
+  Widget build(BuildContext context, WidgetRef ref) {
+    List<_PlaceholderItem> allItems;
+    if (tab == BrowserTab.projects) {
+      final recent = ref.watch(recentProjectsProvider);
+      allItems = recent.when(
+        data: (files) => files.map((f) => _PlaceholderItem(f, Icons.folder_rounded)).toList(),
+        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
+        error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded)],
+      );
+    } else {
+      allItems = switch (tab) {
+        BrowserTab.samples => [
+            _PlaceholderItem('Kick', Icons.audiotrack_rounded),
+            _PlaceholderItem('Snare', Icons.audiotrack_rounded),
+            _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
+            _PlaceholderItem('Bass', Icons.audiotrack_rounded),
+            _PlaceholderItem('Synth Pad', Icons.audiotrack_rounded),
+          ],
+        BrowserTab.presets => [
+            _PlaceholderItem('Default.zap', Icons.description_rounded),
+            _PlaceholderItem('Lead 1', Icons.piano_rounded),
+            _PlaceholderItem('Pad 1', Icons.piano_rounded),
+          ],
+        BrowserTab.projects => const [],
+      };
+    }
 
     final filtered = query.isEmpty
         ? allItems
@@ -244,7 +251,12 @@ class _BrowserTree extends StatelessWidget {
         return _BrowserListItem(
           icon: item.icon,
           label: item.label,
-          isDirectory: tab == BrowserTab.projects && index == 0,
+          onTap: () {
+            if (tab == BrowserTab.projects) {
+              // TODO: open project by name/path
+              AppLogger.i('Open project: ${item.label}');
+            }
+          },
         );
       },
     );
@@ -260,12 +272,12 @@ class _PlaceholderItem {
 class _BrowserListItem extends StatefulWidget {
   final IconData icon;
   final String label;
-  final bool isDirectory;
+  final VoidCallback? onTap;
 
   const _BrowserListItem({
     required this.icon,
     required this.label,
-    this.isDirectory = false,
+    this.onTap,
   });
 
   @override
@@ -287,26 +299,24 @@ class _BrowserListItemState extends State<_BrowserListItem> {
         child: Material(
           color: _isHovered ? cs.primary.withAlpha(15) : Colors.transparent,
           child: InkWell(
-            onTap: () {},
+            onTap: widget.onTap,
             child: Container(
               height: 24,
               padding: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
-                border: widget.isDirectory
-                    ? null
-                    : Border(
-                        bottom: BorderSide(
-                          color: Theme.of(context).dividerColor.withAlpha(38),
-                          width: 0.5,
-                        ),
-                      ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).dividerColor.withAlpha(38),
+                    width: 0.5,
+                  ),
+                ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    widget.isDirectory ? Icons.folder_rounded : widget.icon,
+                    widget.icon,
                     size: 12,
-                    color: widget.isDirectory ? AppColors.neonYellow : cs.primary,
+                    color: cs.primary,
                   ),
                   const SizedBox(width: 6),
                   Expanded(

@@ -11,6 +11,8 @@ final recordingProvider =
 
 final recordingElapsedProvider = StateProvider<double>((ref) => 0);
 
+final recordingErrorProvider = StateProvider<String?>((ref) => null);
+
 class RecordingNotifier extends Notifier<RecordingState> {
   AudioRecorder? _recorder;
   String? _outputPath;
@@ -34,8 +36,10 @@ class RecordingNotifier extends Notifier<RecordingState> {
     if (!hasPermission) {
       AppLogger.w('麦克风权限被拒绝');
       state = RecordingState.permissionDenied;
+      ref.read(recordingErrorProvider.notifier).state = 'permission_denied';
       return false;
     }
+    ref.read(recordingErrorProvider.notifier).state = null;
     return true;
   }
 
@@ -59,6 +63,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       _startTime = DateTime.now();
       state = RecordingState.recording;
       ref.read(recordingElapsedProvider.notifier).state = 0;
+      ref.read(recordingErrorProvider.notifier).state = null;
 
       _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (_startTime != null) {
@@ -72,6 +77,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return _outputPath;
     } catch (e) {
       AppLogger.e('Failed to start recording', e);
+      ref.read(recordingErrorProvider.notifier).state = 'start_failed';
       await _cleanup();
       return null;
     }

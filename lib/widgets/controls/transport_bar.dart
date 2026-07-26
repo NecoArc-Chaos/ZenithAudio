@@ -26,6 +26,7 @@ class TransportBar extends ConsumerWidget {
     final masterVol = ref.watch(masterVolumeProvider);
     final recState = ref.watch(recordingProvider);
     final recElapsed = ref.watch(recordingElapsedProvider);
+    final recError = ref.watch(recordingErrorProvider);
     final isRecording = recState == RecordingState.recording;
     final wavProgress = ref.watch(wavGenerationProgressProvider);
     final cs = Theme.of(context).colorScheme;
@@ -103,8 +104,14 @@ class TransportBar extends ConsumerWidget {
               } else {
                 final success = await notifier.startRecording();
                 if (!success && context.mounted) {
+                  final error = ref.read(recordingErrorProvider);
+                  final msg = switch (error) {
+                    'permission_denied' => '录音失败：麦克风权限被拒绝，请在系统设置中开启权限',
+                    'start_failed' => '录音失败：无法启动录音，请稍后重试',
+                    _ => '录音失败：请检查麦克风权限',
+                  };
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('录音失败：请检查麦克风权限')),
+                    SnackBar(content: Text(msg)),
                   );
                 }
               }
