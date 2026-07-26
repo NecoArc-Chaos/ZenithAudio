@@ -64,8 +64,8 @@ class ProjectNotifier extends Notifier<Project> {
       ),
     );
     if (result == 'save') {
-      await saveProject(context);
-      return true;
+      final ok = await saveProject(context);
+      return ok;
     }
     return result == 'discard';
   }
@@ -278,7 +278,7 @@ class ProjectNotifier extends Notifier<Project> {
 
   // ──── Save / Open ────
 
-  Future<void> saveProject([BuildContext? context]) async {
+  Future<bool> saveProject([BuildContext? context]) async {
     try {
       AppLogger.i('Saving project...');
 
@@ -291,7 +291,7 @@ class ProjectNotifier extends Notifier<Project> {
         final webSerializer = ProjectSerializer();
         webSerializer.downloadArchive(bytes, '${state.name}${AppConstants.projectExtension}');
         AppLogger.i('Project saved via browser download');
-        return;
+        return true;
       }
 
       // Resolve output path
@@ -324,11 +324,11 @@ class ProjectNotifier extends Notifier<Project> {
               const SnackBar(content: Text('保存失败：无法选择文件位置')),
             );
           }
-          return;
+          return false;
         }
       }
 
-      if (outputPath == null) return; // User cancelled
+      if (outputPath == null) return false; // User cancelled
 
       if (Platform.isIOS) {
         // On iOS with bytes param, file is already written by the picker.
@@ -353,6 +353,7 @@ class ProjectNotifier extends Notifier<Project> {
       _isDirty = false;
       clearAutoSaveCache();
       AppLogger.i('Project saved to: $outputPath');
+      return true;
     } catch (e) {
       AppLogger.e('Failed to save project', e);
       if (context != null && context.mounted) {
@@ -360,6 +361,7 @@ class ProjectNotifier extends Notifier<Project> {
           const SnackBar(content: Text('保存失败：写入文件时发生错误')),
         );
       }
+      return false;
     }
   }
 
@@ -700,7 +702,8 @@ class ProjectNotifier extends Notifier<Project> {
         ),
       );
       if (result == 'save') {
-        await saveProject(context);
+        final ok = await saveProject(context);
+        if (!ok) return; // save failed, don't discard
       } else if (result != 'discard') {
         return; // cancelled
       }
