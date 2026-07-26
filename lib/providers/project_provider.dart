@@ -364,6 +364,10 @@ class ProjectNotifier extends Notifier<Project> {
   }
 
   Future<void> openProject(BuildContext context) async {
+    if (_isDirty) {
+      final ok = await confirmDiscard(context);
+      if (!ok) return;
+    }
     _pushUndo();
     _isDirty = false;
     stopAutoSave();
