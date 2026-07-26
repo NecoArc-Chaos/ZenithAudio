@@ -22,7 +22,7 @@ final projectProvider = NotifierProvider<ProjectNotifier, Project>(
 
 class ProjectNotifier extends Notifier<Project> {
   static const _uuid = Uuid();
-  static const int _maxUndo = 50;
+  static const int _maxUndo = AppConstants.maxUndoSteps;
 
   /// Current save path for the project (set after first save or open).
   String? _currentFilePath;

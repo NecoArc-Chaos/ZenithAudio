@@ -49,9 +49,9 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
   static bool _isMobilePlatform() =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  static const int _minNote = 12;
-  static const int _maxNote = 108;
-  static const int _noteCount = _maxNote - _minNote + 1;
+  static const int _minNote = AppConstants.pianoRollMinNote;
+  static const int _maxNote = AppConstants.pianoRollMaxNote;
+  static const int _noteCount = AppConstants.pianoRollNoteCount;
 
   ViewportMode _viewportMode = ViewportMode.edit;
   final Set<int> _selectedIndices = {};

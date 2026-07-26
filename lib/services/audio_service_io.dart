@@ -71,7 +71,7 @@ class AudioService {
   }
 
   DateTime _lastPositionUpdate = DateTime.now();
-  static const Duration _positionThrottle = Duration(milliseconds: 33);
+  static const Duration _positionThrottle = Duration(milliseconds: AppConstants.positionUpdateThrottleMs);
 
   Future<double> loadTrack(Track track) async {
     if (track.audioFilePath == null) return 0;
@@ -145,7 +145,7 @@ class AudioService {
       return cached.path;
     }
 
-    const maxDur = 120.0;
+    const maxDur = AppConstants.maxInstrumentRenderSeconds.toDouble();
     final dur = track.computedDuration > 0
         ? (track.computedDuration + 0.5).clamp(0, maxDur)
         : 2.0;

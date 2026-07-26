@@ -20,8 +20,8 @@ class PianoRollTrack extends StatelessWidget {
   });
 
   static const double _height = 80;
-  static const int _minNote = 12; // C0
-  static const int _maxNote = 108; // C8
+  static const int _minNote = AppConstants.pianoRollMinNote;
+  static const int _maxNote = AppConstants.pianoRollMaxNote;
 
   @override
   Widget build(BuildContext context) {

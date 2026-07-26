@@ -33,6 +33,17 @@ class AppConstants {
   static const List<String> supportedMidiFormats = [
     '.mid', '.midi',
   ];
+
+  // ── Piano roll range ──
+  static const int pianoRollMinNote = 12;   // C0
+  static const int pianoRollMaxNote = 108;  // C8
+  static const int pianoRollNoteCount = pianoRollMaxNote - pianoRollMinNote + 1;
+
+  // ── Playback / transport ──
+  static const int stepsPerBeat = 4;
+  static const int positionUpdateThrottleMs = 33;
+  static const int maxInstrumentRenderSeconds = 120;
+  static const int maxUndoSteps = 50;
 }
 
 class AppColors {

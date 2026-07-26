@@ -30,7 +30,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       ref.read(playheadPositionProvider.notifier).state = pos;
       final project = ref.read(projectProvider);
       final bpm = project.bpm;
-      final stepsPerBeat = 4;
+      final stepsPerBeat = AppConstants.stepsPerBeat;
       final secondsPerStep = 60.0 / bpm / stepsPerBeat;
       final step = (pos / secondsPerStep).floor() % 16;
       ref.read(currentStepProvider.notifier).state = step;
