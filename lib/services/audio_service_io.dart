@@ -274,6 +274,26 @@ class AudioService {
     }
   }
 
+  /// Create a [TrackPlayer] for the given path without blocking on open.
+  /// The returned future completes when the player is ready to play.
+  Future<_TrackPlayer?> prepareTrack(String trackId, String path) async {
+    final player = Player();
+    final tp = _TrackPlayer(player);
+    try {
+      await player.open(Media(Uri.file(path).toString()), play: false);
+      _players[trackId] = tp;
+      tp.trackVolume = 1.0;
+      _trackMutes[trackId] = false;
+      _trackSolos[trackId] = false;
+      _trackUsage[trackId] = DateTime.now();
+      return tp;
+    } catch (e) {
+      AppLogger.e('Failed to prepare track $trackId: $path', e);
+      tp.dispose();
+      return null;
+    }
+  }
+
   /// Load a single track from a file path with given raw volume.
   Future<void> loadTrackFromPath(String trackId, String path,
       {double volume = 1.0}) async {
