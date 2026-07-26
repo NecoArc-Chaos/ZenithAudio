@@ -10,7 +10,7 @@ enum BrowserTab { samples, presets, projects }
 
 final browserTabProvider = StateProvider<BrowserTab>((ref) => BrowserTab.samples);
 
-final recentProjectsProvider = FutureProvider<List<String>>((ref) async {
+final recentProjectsProvider = FutureProvider<List<File>>((ref) async {
   if (kIsWeb) return [];
   try {
     final dir = await getApplicationDocumentsDirectory();
@@ -19,7 +19,7 @@ final recentProjectsProvider = FutureProvider<List<String>>((ref) async {
     return projectDir
         .listSync()
         .where((e) => e is File && e.path.endsWith('.zap'))
-        .map((e) => File(e.path).name)
+        .map((e) => File(e.path))
         .toList();
   } catch (_) {
     return [];

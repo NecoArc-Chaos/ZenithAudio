@@ -206,8 +206,10 @@ class _BrowserTree extends ConsumerWidget {
   const _BrowserTree({required this.tab, required this.query});
 
   Future<void> _onItemTap(BuildContext context, WidgetRef ref, _PlaceholderItem item) async {
-    if (tab == BrowserTab.projects) {
-      // TODO: open project by name/path
+    if (tab == BrowserTab.projects && item.tag is String) {
+      final path = item.tag as String;
+      final notifier = ref.read(projectProvider.notifier);
+      await notifier.openProject(context);
       AppLogger.i('Open project: ${item.label}');
     } else if (tab == BrowserTab.samples && item.label == 'browser.importAudio'.tr()) {
       final fileService = FileService();
@@ -250,7 +252,7 @@ class _BrowserTree extends ConsumerWidget {
     if (tab == BrowserTab.projects) {
       final recent = ref.watch(recentProjectsProvider);
       allItems = recent.when(
-        data: (files) => files.map((f) => _PlaceholderItem(f, Icons.folder_rounded)).toList(),
+        data: (files) => files.map((f) => _PlaceholderItem.file(f.path, f.name)).toList(),
         loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
         error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded)],
       );
@@ -300,7 +302,12 @@ class _BrowserTree extends ConsumerWidget {
 class _PlaceholderItem {
   final String label;
   final IconData icon;
-  const _PlaceholderItem(this.label, this.icon);
+  final Object? tag;
+  const _PlaceholderItem(this.label, this.icon, {this.tag});
+
+  const _PlaceholderItem.file(String path, this.label)
+      : icon = Icons.folder_rounded,
+        tag = path;
 }
 
 class _BrowserListItem extends StatefulWidget {
