@@ -85,21 +85,25 @@ class _BrowserHeader extends ConsumerWidget {
           GestureDetector(
             onTap: () async {
               if (selectedDir == null) return;
-              final bookmarks = List<String>.from(ref.read(browserBookmarksProvider));
-              if (bookmarks.contains(selectedDir)) {
-                bookmarks.remove(selectedDir);
+              final bookmarks = List<_BrowserBookmark>.from(ref.read(browserBookmarksProvider));
+              final exists = bookmarks.any((b) => b.path == selectedDir);
+              if (exists) {
+                bookmarks.removeWhere((b) => b.path == selectedDir);
               } else {
-                bookmarks.add(selectedDir);
+                bookmarks.add(_BrowserBookmark(
+                  path: selectedDir,
+                  addedAt: DateTime.now().toIso8601String(),
+                ));
               }
               ref.read(browserBookmarksProvider.notifier).state = bookmarks;
               await persistBrowserBookmarks(bookmarks);
             },
             child: Icon(
-              selectedDir != null && bookmarks.contains(selectedDir)
+              selectedDir != null && bookmarks.any((b) => b.path == selectedDir)
                   ? Icons.star_rounded
                   : Icons.star_outline_rounded,
               size: 12,
-              color: selectedDir != null && bookmarks.contains(selectedDir)
+              color: selectedDir != null && bookmarks.any((b) => b.path == selectedDir)
                   ? AppColors.neonYellow
                   : cs.onSurfaceVariant,
             ),
@@ -118,23 +122,26 @@ class _BrowserHeader extends ConsumerWidget {
                 ),
                 items: [
                   ...bookmarks.map((b) {
+                    final display = b.label.isNotEmpty
+                        ? '${b.label} (${b.path.split('/').last})'
+                        : b.path.split('/').last;
                     return PopupMenuItem<String>(
-                      value: b,
+                      value: b.path,
                       child: Row(
                         children: [
                           Icon(Icons.folder_rounded, size: 12, color: cs.primary),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              b.split('/').last,
+                              display,
                               style: TextStyle(fontSize: 10),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final list = List<String>.from(ref.read(browserBookmarksProvider));
-                              list.remove(b);
+                              final list = List<_BrowserBookmark>.from(ref.read(browserBookmarksProvider));
+                              list.removeWhere((item) => item.path == b.path);
                               ref.read(browserBookmarksProvider.notifier).state = list;
                               await persistBrowserBookmarks(list);
                               if (context.mounted) Navigator.of(context).pop();
@@ -154,6 +161,23 @@ class _BrowserHeader extends ConsumerWidget {
               }
             },
             child: Icon(Icons.bookmark_outline_rounded, size: 12, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () async {
+              final path = await exportBrowserBookmarks();
+              if (path != null && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Exported to $path'), duration: const Duration(seconds: 2)),
+                );
+              }
+            },
+            child: Icon(Icons.upload_file_rounded, size: 12, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => importBrowserBookmarks(context, ref),
+            child: Icon(Icons.download_rounded, size: 12, color: cs.onSurfaceVariant),
           ),
           const SizedBox(width: 4),
           GestureDetector(

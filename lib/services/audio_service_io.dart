@@ -277,6 +277,7 @@ class AudioService {
   /// Create a [TrackPlayer] for the given path without blocking on open.
   /// The returned future completes when the player is ready to play.
   Future<_TrackPlayer?> prepareTrack(String trackId, String path) async {
+    _enforceLoadedTrackLimit();
     final player = Player();
     final tp = _TrackPlayer(player);
     try {
@@ -286,10 +287,31 @@ class AudioService {
       _trackMutes[trackId] = false;
       _trackSolos[trackId] = false;
       _trackUsage[trackId] = DateTime.now();
+
+      tp.completedSub = player.stream.completed.listen((completed) {
+        if (tp._disposed) return;
+        if (completed) {
+          _completedTracks++;
+          if (_completedTracks >= _totalTracks) {
+            onCompleted?.call();
+          }
+        }
+      });
+
+      tp.positionSub = player.stream.position.listen((position) {
+        if (tp._disposed) return;
+        final now = DateTime.now();
+        if (now.difference(_lastPositionUpdate) < _positionThrottle) return;
+        _lastPositionUpdate = now;
+        onPositionChanged?.call(position.inMilliseconds / 1000.0);
+      });
+
+      _totalTracks++;
       return tp;
     } catch (e) {
       AppLogger.e('Failed to prepare track $trackId: $path', e);
       tp.dispose();
+      _players.remove(trackId);
       return null;
     }
   }

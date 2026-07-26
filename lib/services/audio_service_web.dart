@@ -118,6 +118,35 @@ class AudioService {
     return result.path.isEmpty ? null : result.path;
   }
 
+  Future<_TrackPlayer?> prepareTrack(String trackId, String path) async {
+    try {
+      final element = html.AudioElement()
+        ..src = path
+        ..preload = 'auto'
+        ..volume = _masterVolume;
+
+      final tp = _TrackPlayer(element: element, volume: 1.0);
+      _players[trackId] = tp;
+      _trackMutes[trackId] = false;
+      _trackSolos[trackId] = false;
+
+      tp.positionSub = element.onTimeUpdate.listen((_) {
+        onPositionChanged?.call(element.currentTime.toDouble());
+      });
+      tp.endedSub = element.onEnded.listen((_) {
+        _players.remove(trackId);
+        if (_players.isEmpty) {
+          onCompleted?.call();
+        }
+      });
+
+      return tp;
+    } catch (e) {
+      AppLogger.e('Failed to prepare track $trackId: $path', e);
+      return null;
+    }
+  }
+
   Stream<double> prepareTracks(List<Track> tracks,
       {String? skipTrackId, bool useIsolate = false}) async* {
     yield 1.0;
