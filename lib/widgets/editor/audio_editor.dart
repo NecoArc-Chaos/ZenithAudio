@@ -37,6 +37,7 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
   bool _userInteracted = false;
 
   bool _recoveryChecked = false;
+  final ValueNotifier<double> _playheadNotifier = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -48,6 +49,10 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
         _recoveryChecked = true;
         ProjectNotifier.checkForAutoSaveRecovery(context, ref);
       }
+    });
+    ref.listen<double>(playheadPositionProvider, (_, pos) {
+      _playheadNotifier.value = pos;
+      _autoScroll(pos);
     });
   }
 
@@ -142,15 +147,6 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
     }
   }
 
-  bool get _showBackButton {
-    if (!_waveformScrollCtrl.hasClients) return false;
-    final pps = ref.read(pixelsPerSecondProvider);
-    final pos = ref.read(playheadPositionProvider);
-    final screenX = pos * pps - _waveformScrollCtrl.offset;
-    final vpw = _waveformScrollCtrl.position.viewportDimension;
-    return screenX < -10 || screenX > vpw + 10;
-  }
-
   void _scrollToPlayhead() {
     if (!_waveformScrollCtrl.hasClients) return;
     final pps = ref.read(pixelsPerSecondProvider);
@@ -203,7 +199,6 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
   @override
   Widget build(BuildContext context) {
     final project = ref.watch(projectProvider);
-    final playhead = ref.watch(playheadPositionProvider);
     final pps = ref.watch(pixelsPerSecondProvider);
     final cs = Theme.of(context).colorScheme;
     final screenSize = getScreenSize(context);
@@ -214,11 +209,6 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
       if (next == PlaybackState.playing) {
         setState(() => _userInteracted = false);
       }
-    });
-
-    // Auto-scroll: run on each playhead update while playing.
-    ref.listen<double>(playheadPositionProvider, (_, pos) {
-      _autoScroll(pos);
     });
 
     return PopScope(
@@ -254,7 +244,7 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
                                   child: TimelineRuler(
                                     duration: project.duration > 0 ? project.duration : 60,
                                     pixelsPerSecond: pps,
-                                    currentPosition: playhead,
+                                    currentPosition: 0,
                                     bpm: project.bpm,
                                     timeSignatureNumerator: project.timeSignatureNumerator,
                                     onSeek: (sec) =>
@@ -303,45 +293,12 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
                                                 ),
                                               ),
                                             ),
-                                      // Playhead line overlay.
-                                      if (project.tracks.isNotEmpty)
-                                      Positioned(
-                                        left: playhead * pps -
-                                            (_waveformScrollCtrl.hasClients
-                                                ? _waveformScrollCtrl.offset
-                                                : 0),
-                                        top: 0,
-                                        bottom: 0,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                              width: 2, color: AppColors.playhead),
-                                          ),
-                                        ),
-                                      if (_showBackButton)
-                                        Positioned(
-                                          right: 8,
-                                          top: 8,
-                                          child: Material(
-                                            color: cs.primary,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            child: InkWell(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              onTap: _scrollToPlayhead,
-                                              child: Container(
-                                                width: 32,
-                                                height: 32,
-                                                alignment: Alignment.center,
-                                                child: Icon(
-                                                  Icons.play_arrow_rounded,
-                                                  size: 18,
-                                                  color: cs.onPrimary,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                      _PlayheadOverlay(
+                                        pixelsPerSecond: pps,
+                                        scrollCtrl: _waveformScrollCtrl,
+                                        playheadNotifier: _playheadNotifier,
+                                        onScrollToPlayhead: _scrollToPlayhead,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -396,6 +353,72 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
               style: TextStyle(color: context.outline.withAlpha(102), fontSize: 11)),
         ],
       ),
+    );
+  }
+}
+
+class _PlayheadOverlay extends StatelessWidget {
+  final double pixelsPerSecond;
+  final ScrollController scrollCtrl;
+  final ValueNotifier<double> playheadNotifier;
+  final VoidCallback onScrollToPlayhead;
+
+  const _PlayheadOverlay({
+    required this.pixelsPerSecond,
+    required this.scrollCtrl,
+    required this.playheadNotifier,
+    required this.onScrollToPlayhead,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([playheadNotifier, scrollCtrl]),
+      builder: (context, child) {
+        final playhead = playheadNotifier.value;
+        final offset = scrollCtrl.hasClients ? scrollCtrl.offset : 0;
+        final screenX = playhead * pixelsPerSecond - offset;
+        final vpw = scrollCtrl.hasClients ? scrollCtrl.position.viewportDimension : 0;
+        final showBack = screenX < -10 || screenX > vpw + 10;
+
+        return Stack(
+          children: [
+            // Playhead line
+            Positioned(
+              left: screenX,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Container(width: 2, color: AppColors.playhead),
+              ),
+            ),
+            // Back-to-playhead button
+            if (showBack)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Material(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: onScrollToPlayhead,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
