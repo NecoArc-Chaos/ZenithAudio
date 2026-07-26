@@ -45,12 +45,14 @@ class _TrackPlayer {
 class _WavCache {
   final String path;
   final int noteHash;
-  _WavCache(this.path, this.noteHash);
+  final DateTime lastUsed;
+  _WavCache(this.path, this.noteHash, this.lastUsed);
 }
 
 class AudioService {
   final Map<String, _TrackPlayer> _players = {};
   final Map<String, _WavCache> _wavCache = {};
+  static const int _maxWavCache = 8;
   bool _isPlaying = false;
   double _masterVolume = 1.0;
   double _playbackSpeed = 1.0;
@@ -148,8 +150,11 @@ class AudioService {
     final noteHash = Object.hash(track.instrumentName, Object.hashAll(track.notes));
     final cached = _wavCache[track.id];
     if (cached != null && cached.noteHash == noteHash) {
+      _wavCache[track.id] = _WavCache(cached.path, cached.noteHash, DateTime.now());
       return cached.path;
     }
+
+    _evictOldestWavIfNeeded();
 
     const maxDur = AppConstants.maxInstrumentRenderSeconds.toDouble();
     final dur = track.computedDuration > 0
@@ -189,8 +194,21 @@ class AudioService {
     final filePath = '${dir.path}/synth_${track.id}.wav';
     await File(filePath).writeAsBytes(wav);
 
-    _wavCache[track.id] = _WavCache(filePath, noteHash);
+    _wavCache[track.id] = _WavCache(filePath, noteHash, DateTime.now());
     return filePath;
+  }
+
+  void _evictOldestWavIfNeeded() {
+    if (_wavCache.length < _maxWavCache) return;
+    final oldest = _wavCache.entries.reduce((a, b) =>
+        a.value.lastUsed.isBefore(b.value.lastUsed) ? a : b);
+    final removed = _wavCache.remove(oldest.key);
+    if (removed != null) {
+      try {
+        final f = File(removed.path);
+        if (f.existsSync()) f.deleteSync();
+      } catch (_) {}
+    }
   }
 
   /// Prepare all given tracks (generate WAVs for instrument tracks if needed).
