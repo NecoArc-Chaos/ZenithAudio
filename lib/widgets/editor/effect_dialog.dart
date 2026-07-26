@@ -92,43 +92,65 @@ class _EffectDialogState extends State<_EffectDialog> {
     if (_previewing) return;
     _previewing = true;
 
-    // Process a 2-second segment roughly centered
-    final sampleCount = (_previewDurationSec * widget.sampleRate).round();
-    final halfClip = widget.clipSamples.length ~/ 2;
-    final halfPreview = sampleCount ~/ 2;
-    final startSample = (halfClip - halfPreview).clamp(0, widget.clipSamples.length - sampleCount);
-    final segment = widget.clipSamples.sublist(startSample, startSample + sampleCount);
-
-    final processed = widget.process(segment, widget.sampleRate, _params);
-
-    // Encode as WAV and play
-    final wav = _encodeWavPreview(processed, widget.sampleRate);
-    final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/effect_preview.wav';
-    await File(path).writeAsBytes(wav);
-
-    await _previewPlayer?.dispose();
-    final player = Player();
-    _previewPlayer = player;
-    player.stream.completed.listen((_) {
-      if (mounted) setState(() => _previewing = false);
-    });
-    player.stream.error.listen((_) {
-      if (mounted) setState(() => _previewing = false);
-    });
-
     try {
-      await player.open(Media(Uri.file(path).toString()));
-      await player.setVolume(80);
-      player.play();
-    } catch (_) {
+      // Process a 2-second segment roughly centered
+      final sampleCount = (_previewDurationSec * widget.sampleRate).round();
+      final halfClip = widget.clipSamples.length ~/ 2;
+      final halfPreview = sampleCount ~/ 2;
+      final startSample = (halfClip - halfPreview).clamp(0, widget.clipSamples.length - sampleCount);
+      final segment = widget.clipSamples.sublist(startSample, startSample + sampleCount);
+
+      final processed = widget.process(segment, widget.sampleRate, _params);
+
+      // Encode as WAV and play
+      final wav = _encodeWavPreview(processed, widget.sampleRate);
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/effect_preview.wav';
+      await File(path).writeAsBytes(wav);
+
+      await _previewPlayer?.dispose();
+      final player = Player();
+      _previewPlayer = player;
+      player.stream.completed.listen((_) {
+        if (mounted) setState(() => _previewing = false);
+      });
+      player.stream.error.listen((_) {
+        if (mounted) setState(() => _previewing = false);
+      });
+
+      try {
+        await player.open(Media(Uri.file(path).toString()));
+        await player.setVolume(80);
+        player.play();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('预览播放失败')),
+          );
+        }
+        if (mounted) setState(() => _previewing = false);
+      }
+    } catch (e) {
+      AppLogger.e('Effect preview failed', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('效果预览失败：处理音频时发生错误')),
+        );
+      }
       if (mounted) setState(() => _previewing = false);
     }
   }
 
   void _apply() {
-    final result = widget.process(widget.clipSamples, widget.sampleRate, _params);
-    Navigator.of(context).pop(EffectResult(result));
+    try {
+      final result = widget.process(widget.clipSamples, widget.sampleRate, _params);
+      Navigator.of(context).pop(EffectResult(result));
+    } catch (e) {
+      AppLogger.e('Effect apply failed', e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('应用效果失败：处理音频时发生错误')),
+      );
+    }
   }
 
   void _cancel() {

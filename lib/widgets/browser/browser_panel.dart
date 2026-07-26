@@ -227,6 +227,19 @@ class _BrowserTree extends ConsumerWidget {
           );
         }
       }
+    } else if (tab == BrowserTab.samples && item.tag is String) {
+      final path = item.tag as String;
+      final trackIndex = ref.read(projectProvider).tracks.length + 1;
+      final name = 'track.defaultName'.tr(namedArgs: {'n': '$trackIndex'});
+      ref.read(projectProvider.notifier).addTrack(
+            name: name,
+            audioFilePath: path,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('browser.imported'.tr(namedArgs: {'name': item.label})), duration: const Duration(seconds: 2)),
+        );
+      }
     } else if (tab == BrowserTab.presets) {
       final preset = InstrumentPreset.allPresets.firstWhere(
         (p) => p.name == item.label,
@@ -262,14 +275,15 @@ class _BrowserTree extends ConsumerWidget {
           .map((p) => _PlaceholderItem(p.$1, p.$2))
           .toList();
     } else {
-      allItems = [
-        _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
-        _PlaceholderItem('Kick', Icons.audiotrack_rounded),
-        _PlaceholderItem('Snare', Icons.audiotrack_rounded),
-        _PlaceholderItem('Hi-Hat', Icons.audiotrack_rounded),
-        _PlaceholderItem('Bass', Icons.audiotrack_rounded),
-        _PlaceholderItem('Synth Pad', Icons.audiotrack_rounded),
-      ];
+      final samples = ref.watch(browserSamplesProvider);
+      allItems = samples.when(
+        data: (files) => [
+          _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
+          ...files.map((f) => _PlaceholderItem.file(f.path, f.path.split('/').last)),
+        ],
+        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
+        error: (_, __) => [_PlaceholderItem('Error loading samples', Icons.error_outline_rounded)],
+      );
     }
 
     final filtered = query.isEmpty
