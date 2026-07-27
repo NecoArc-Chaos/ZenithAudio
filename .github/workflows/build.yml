@@ -149,5 +149,5 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            ${{ matrix.platform == "android" && "android/" || "" }}${{ matrix.artifact_name }}.*
+            ${{ matrix.platform == 'android' && 'android/' || '' }}${{ matrix.artifact_name }}.*
           retention-days: 14
