@@ -249,7 +249,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       final usage = audio.getTrackLastUsed(id);
       return MapEntry(id, usage);
     }).toList();
-    entries.sort((a, b) => a.value.compareTo(b.value));
+    entries.sort((a, b) => (a.value ?? DateTime.now()).compareTo(b.value ?? DateTime.now()));
 
     final toRelease = entries.take(entries.length - keepCount).map((e) => e.key).toList();
     for (final id in toRelease) {

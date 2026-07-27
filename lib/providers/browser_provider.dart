@@ -38,13 +38,11 @@ final browserPresetsProvider = Provider<List<(String, IconData)>>((ref) {
 });
 
 final selectedSamplesDirProvider = StateProvider<String?>((ref) {
-  final prefs = ref.watch(_browserPrefsProvider.future);
-  return prefs.then((p) => p.selectedSamplesDir);
+  return null;
 });
 
 final browserBookmarksProvider = StateProvider<List<BrowserBookmark>>((ref) {
-  final prefs = ref.watch(_browserPrefsProvider.future);
-  return prefs.then((p) => List.from(p.bookmarkedDirs));
+  return [];
 });
 
 /// Persist the currently selected samples directory.

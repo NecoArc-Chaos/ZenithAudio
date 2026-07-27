@@ -129,7 +129,7 @@ class TransportBar extends ConsumerWidget {
                       }
                     } else {
                       final success = await notifier.startRecording();
-                      if (!success && context.mounted) {
+                      if (success == null && context.mounted) {
                         final error = ref.read(recordingErrorProvider);
                         final msg = switch (error) {
                           'permission_denied' => '录音失败：麦克风权限被拒绝，请在系统设置中开启权限',
