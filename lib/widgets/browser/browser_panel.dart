@@ -436,12 +436,10 @@ class _BrowserTree extends ConsumerWidget {
 class _PlaceholderItem {
   final String label;
   final IconData icon;
-  final Object? tag;
-  const _PlaceholderItem(this.label, this.icon, {this.tag});
+  const _PlaceholderItem(this.label, this.icon);
 
   const _PlaceholderItem.file(String path, this.label)
-      : icon = Icons.folder_rounded,
-        tag = path;
+      : icon = Icons.folder_rounded;
 }
 
 class _BrowserListItem extends StatefulWidget {

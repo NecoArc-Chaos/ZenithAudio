@@ -228,7 +228,7 @@ class _ParamSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final sliderVal = logarithmic
-        ? ((log(value / min) / log(max / min)) as double)
+        ? (log(value / min) / log(max / min))
         : ((value - min) / (max - min));
 
     return Padding(
