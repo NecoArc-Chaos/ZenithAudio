@@ -42,7 +42,7 @@ final selectedSamplesDirProvider = StateProvider<String?>((ref) {
   return prefs.then((p) => p.selectedSamplesDir);
 });
 
-final browserBookmarksProvider = StateProvider<List<_BrowserBookmark>>((ref) {
+final browserBookmarksProvider = StateProvider<List<BrowserBookmark>>((ref) {
   final prefs = ref.watch(_browserPrefsProvider.future);
   return prefs.then((p) => List.from(p.bookmarkedDirs));
 });
@@ -61,7 +61,7 @@ Future<void> persistSelectedSamplesDir(String? dir) async {
 }
 
 /// Persist the bookmarked directories list.
-Future<void> persistBrowserBookmarks(List<_BrowserBookmark> bookmarks) async {
+Future<void> persistBrowserBookmarks(List<BrowserBookmark> bookmarks) async {
   if (kIsWeb) return;
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -76,15 +76,15 @@ final _browserPrefsProvider = FutureProvider<_BrowserPrefs>((ref) async {
     final prefs = await SharedPreferences.getInstance();
     final selected = prefs.getString('browser_selected_samples_dir');
     final raw = prefs.getStringList('browser_bookmarked_dirs') ?? <String>[];
-    final bookmarks = <_BrowserBookmark>[];
+    final bookmarks = <BrowserBookmark>[];
     for (final item in raw) {
       try {
         final map = jsonDecode(item) as Map<String, dynamic>;
-        bookmarks.add(_BrowserBookmark.fromJson(map));
+        bookmarks.add(BrowserBookmark.fromJson(map));
       } catch (_) {
         // Backward compat: treat as plain path
         if (item.isNotEmpty) {
-          bookmarks.add(_BrowserBookmark(path: item, addedAt: DateTime.now().toIso8601String(), label: ''));
+          bookmarks.add(BrowserBookmark(path: item, addedAt: DateTime.now().toIso8601String(), label: ''));
         }
       }
     }
@@ -96,7 +96,7 @@ final _browserPrefsProvider = FutureProvider<_BrowserPrefs>((ref) async {
 
 class _BrowserPrefs {
   final String? selectedSamplesDir;
-  final List<_BrowserBookmark> bookmarkedDirs;
+  final List<BrowserBookmark> bookmarkedDirs;
   const _BrowserPrefs({this.selectedSamplesDir, this.bookmarkedDirs = const []});
 
   const _BrowserPrefs.empty()
@@ -115,18 +115,18 @@ class _BrowserPrefs {
   }
 }
 
-class _BrowserBookmark {
+class BrowserBookmark {
   final String path;
   final String addedAt;
   final String label;
-  const _BrowserBookmark({
+  const BrowserBookmark({
     required this.path,
     required this.addedAt,
     this.label = '',
   });
 
-  factory _BrowserBookmark.fromJson(Map<String, dynamic> json) {
-    return _BrowserBookmark(
+  factory BrowserBookmark.fromJson(Map<String, dynamic> json) {
+    return BrowserBookmark(
       path: json['path'] as String? ?? '',
       addedAt: json['addedAt'] as String? ?? DateTime.now().toIso8601String(),
       label: json['label'] as String? ?? '',
@@ -139,8 +139,8 @@ class _BrowserBookmark {
     'label': label,
   };
 
-  _BrowserBookmark copyWith({String? path, String? addedAt, String? label}) {
-    return _BrowserBookmark(
+  BrowserBookmark copyWith({String? path, String? addedAt, String? label}) {
+    return BrowserBookmark(
       path: path ?? this.path,
       addedAt: addedAt ?? this.addedAt,
       label: label ?? this.label,

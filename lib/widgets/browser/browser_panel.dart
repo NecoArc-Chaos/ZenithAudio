@@ -87,12 +87,12 @@ class _BrowserHeader extends ConsumerWidget {
           GestureDetector(
             onTap: () async {
               if (selectedDir == null) return;
-              final bookmarks = List<_BrowserBookmark>.from(ref.read(browserBookmarksProvider));
+              final bookmarks = List<BrowserBookmark>.from(ref.read(browserBookmarksProvider));
               final exists = bookmarks.any((b) => b.path == selectedDir);
               if (exists) {
                 bookmarks.removeWhere((b) => b.path == selectedDir);
               } else {
-                bookmarks.add(_BrowserBookmark(
+                bookmarks.add(BrowserBookmark(
                   path: selectedDir,
                   addedAt: DateTime.now().toIso8601String(),
                 ));
@@ -142,7 +142,7 @@ class _BrowserHeader extends ConsumerWidget {
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final list = List<_BrowserBookmark>.from(ref.read(browserBookmarksProvider));
+                              final list = List<BrowserBookmark>.from(ref.read(browserBookmarksProvider));
                               list.removeWhere((item) => item.path == b.path);
                               ref.read(browserBookmarksProvider.notifier).state = list;
                               await persistBrowserBookmarks(list);
