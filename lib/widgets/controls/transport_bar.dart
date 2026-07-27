@@ -27,7 +27,6 @@ class TransportBar extends ConsumerWidget {
     final masterVol = ref.watch(masterVolumeProvider);
     final recState = ref.watch(recordingProvider);
     final recElapsed = ref.watch(recordingElapsedProvider);
-    final recError = ref.watch(recordingErrorProvider);
     final isRecording = recState == RecordingState.recording;
     final permissionDenied = recState == RecordingState.permissionDenied;
     final wavProgress = ref.watch(wavGenerationProgressProvider);
