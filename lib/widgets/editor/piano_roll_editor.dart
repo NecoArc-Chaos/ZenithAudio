@@ -982,8 +982,8 @@ class _PianoRollSlicePainter extends CustomPainter {
     final visibleBottom = scrollOffset + size.height;
 
     // Cull background rows outside visible area
-    final firstVisiblePitch = _maxNote - (visibleBottom / noteRowHeight).ceil();
-    final lastVisiblePitch = _maxNote - (visibleTop / noteRowHeight).floor();
+    final firstVisiblePitch = maxNote - (visibleBottom / noteRowHeight).ceil();
+    final lastVisiblePitch = maxNote - (visibleTop / noteRowHeight).floor();
     final startP = max(minNote, firstVisiblePitch);
     final endP = min(maxNote, lastVisiblePitch);
 
