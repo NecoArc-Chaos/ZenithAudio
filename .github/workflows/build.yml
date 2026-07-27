@@ -86,11 +86,11 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
             cat > key.properties <<EOP
-storeFile=keystore.jks
-storePassword=$KEY_STORE_PASSWORD
-keyAlias=$KEY_ALIAS
-keyPassword=$KEY_PASSWORD
-EOP
+            storeFile=keystore.jks
+            storePassword=$KEY_STORE_PASSWORD
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            EOP
             mv keystore.jks app/
             mv key.properties app/
           fi
