@@ -86,7 +86,6 @@ class WaveformGenerator {
     final result = Float64List(n);
     final numRows = 16;
     final rows = List.generate(numRows, (_) => Random().nextDouble() * 2 - 1);
-    final rowFreq = List.generate(numRows, (i) => 1 << i);
     int counter = 0;
 
     for (int i = 0; i < n; i++) {

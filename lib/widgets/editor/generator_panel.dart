@@ -2,10 +2,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
-import '../../models/audio_clip.dart';
 import '../../services/waveform_generator.dart';
 import '../../services/wav_encoder.dart';
 

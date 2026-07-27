@@ -200,7 +200,6 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
   Widget build(BuildContext context) {
     final project = ref.watch(projectProvider);
     final pps = ref.watch(pixelsPerSecondProvider);
-    final cs = Theme.of(context).colorScheme;
     final screenSize = getScreenSize(context);
     final totalWidth = (project.duration > 0 ? project.duration : 60) * pps;
 

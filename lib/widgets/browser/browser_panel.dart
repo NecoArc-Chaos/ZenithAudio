@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -329,7 +328,6 @@ class _BrowserTree extends ConsumerWidget {
 
   Future<void> _onItemTap(BuildContext context, WidgetRef ref, _PlaceholderItem item) async {
     if (tab == BrowserTab.projects && item.tag is String) {
-      final path = item.tag as String;
       final notifier = ref.read(projectProvider.notifier);
       await notifier.openProject(context);
       AppLogger.i('Open project: ${item.label}');
