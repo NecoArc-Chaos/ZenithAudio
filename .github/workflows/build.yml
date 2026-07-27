@@ -122,12 +122,15 @@ jobs:
           fi
 
       - name: Build ${{ matrix.platform }}
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '10.15'
         run: |
           if [ "${{ matrix.platform }}" = "android" ]; then
             flutter build apk --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-enable-impeller
             flutter build appbundle --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-enable-impeller
           elif [ "${{ matrix.platform }}" = "ios" ]; then
-            flutter build ios --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-codesign
+            flutter build ios --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-codesign --no-enable-impeller
           else
             flutter build ${{ matrix.flutter_target }} --release --build-name=1.0.0 --build-number=${{ github.run_number }}
           fi
