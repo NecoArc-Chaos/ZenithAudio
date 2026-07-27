@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -5,6 +6,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/logger.dart';
 import '../../core/utils/theme_colors.dart';
+import '../../models/instrument.dart';
 import '../../providers/browser_provider.dart';
 import '../../providers/project_provider.dart';
 import '../../services/file_service.dart';
