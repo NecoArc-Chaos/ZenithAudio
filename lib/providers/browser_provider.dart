@@ -7,7 +7,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/instrument.dart';
-import '../services/file_service.dart';
 import '../core/utils/logger.dart';
 
 final browserVisibilityProvider = StateProvider<bool>((ref) => false);

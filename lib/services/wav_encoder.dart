@@ -65,4 +65,3 @@ class _DataWriter {
     _data[_offset++] = (value >> 8) & 0xFF;
   }
 }
-}

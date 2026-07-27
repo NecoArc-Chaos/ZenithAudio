@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../core/constants/app_constants.dart';
 import '../models/track.dart';
 import '../models/instrument.dart';
 import '../core/utils/logger.dart';
@@ -155,7 +156,7 @@ class AudioService {
 
     _evictOldestWavIfNeeded();
 
-    const maxDur = AppConstants.maxInstrumentRenderSeconds.toDouble();
+    final maxDur = AppConstants.maxInstrumentRenderSeconds.toDouble();
     final dur = track.computedDuration > 0
         ? (track.computedDuration + 0.5).clamp(0, maxDur)
         : 2.0;

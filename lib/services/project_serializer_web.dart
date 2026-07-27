@@ -149,7 +149,7 @@ class ProjectSerializer {
         if (t.type == TrackType.instrument) 'instrumentName': t.instrumentName,
         if (t.type == TrackType.instrument && t.notes.isNotEmpty)
           'notes': t.notes.map((n) => n.toJson()).toList(),
-        'color': '#${t.color.toARGB32().toRadixString(16).padLeft(8, '0')}',
+        'color': '#${t.color.value.toRadixString(16).padLeft(8, '0')}',
         'duration': t.duration,
       };
     }).toList();
