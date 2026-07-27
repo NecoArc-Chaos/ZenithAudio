@@ -271,6 +271,12 @@ class AudioService {
 
   String? getCachedTrackPath(String trackId) => _cachedPaths[trackId];
 
+  Set<String> get cachedTrackIds => Set.from(_players.keys);
+
+  bool isTrackLoaded(String trackId) => _players.containsKey(trackId);
+
+  DateTime? getTrackLastUsed(String trackId) => null;
+
   bool isTrackCached(Track track) {
     if (track.type == TrackType.audio) return track.audioFilePath != null;
     return _cachedPaths.containsKey(track.id);
