@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import '../services/audio_service.dart';
+import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
 import 'project_provider.dart';
 import 'settings_provider.dart';

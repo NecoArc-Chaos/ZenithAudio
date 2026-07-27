@@ -76,7 +76,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
       AppLogger.i('录音开始: $_outputPath');
       return _outputPath;
-    } on RecordException catch (e) {
+    } catch (e) {
       AppLogger.e('Failed to start recording', e);
       ref.read(recordingErrorProvider.notifier).state = 'start_failed';
       await _cleanup();
@@ -101,7 +101,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
       AppLogger.i('录音结束: $path');
       return path ?? _outputPath;
-    } on RecordException catch (e) {
+    } catch (e) {
       AppLogger.e('Failed to stop recording', e);
       await _cleanup();
       return null;

@@ -65,8 +65,6 @@ class AppTheme {
   }
 
   static ThemeData _buildTheme(ColorScheme cs, Brightness brightness) {
-    final isDark = brightness == Brightness.dark;
-
     return ThemeData(
       useMaterial3: true,
       fontFamily: 'Plangothic',
