@@ -123,8 +123,8 @@ jobs:
       - name: Build ${{ matrix.platform }}
         run: |
           if [ "${{ matrix.platform }}" = "android" ]; then
-            flutter build apk --release --build-name=1.0.0 --build-number=${{ github.run_number }}
-            flutter build appbundle --release --build-name=1.0.0 --build-number=${{ github.run_number }}
+            flutter build apk --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-enable-impeller
+            flutter build appbundle --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-enable-impeller
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             flutter build ios --release --build-name=1.0.0 --build-number=${{ github.run_number }} --no-codesign
           else
