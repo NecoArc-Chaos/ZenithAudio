@@ -1,6 +1,11 @@
 name: Build Zenith Audio
 
 on:
+  push:
+    branches: [ fix/review-p0 ]
+    paths-ignore:
+      - '**.md'
+      - '**.txt'
   workflow_dispatch:
     inputs:
       build_windows:
@@ -29,6 +34,36 @@ on:
         default: false
 
 jobs:
+  ci:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Read version
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | cut -d' ' -f2)
+          BUILD_NAME=$(echo "$VER" | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$VER" | cut -d'+' -f2)
+          echo "BUILD_NAME=$BUILD_NAME" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Build APK
+        run: flutter build apk --release --build-name=$BUILD_NAME --build-number=$BUILD_NUMBER
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zenith-audio-Android-CI
+          path: build/app/outputs/flutter-apk/*.apk
+
   windows:
     if: inputs.build_windows
     runs-on: windows-latest
@@ -49,25 +84,25 @@ jobs:
       - name: Build portable (zip)
         run: |
           flutter build windows --release --build-name=$env:BUILD_NAME --build-number=$env:BUILD_NUMBER
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath zenith-audio-windows-$env:BUILD_NAME-portable.zip
+          Compress-Archive -Path build\\windows\\x64\\runner\\Release\\* -DestinationPath zenith-audio-windows-$env:BUILD_NAME-portable.zip
       - name: Build installer (Inno Setup)
         continue-on-error: true
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
-          $exe = "build\windows\x64\runner\Release\zenith_audio.exe"
+          $exe = "build\\windows\\x64\\runner\\Release\\zenith_audio.exe"
           $iss = @"
           [Setup]
           AppName=卓声 ZENITH AUDIO
           AppVersion=$env:BUILD_NAME
-          DefaultDirName={autopf}\ZenithAudio
+          DefaultDirName={autopf}\\ZenithAudio
           DefaultGroupName=卓声 ZENITH AUDIO
           OutputDir=installer_output
           OutputBaseFilename=zenith-audio-setup-$env:BUILD_NAME
-          UninstallDisplayIcon={app}\zenith_audio.exe
+          UninstallDisplayIcon={app}\\zenith_audio.exe
           [Files]
           Source: "$exe"; DestDir: "{app}"; Flags: ignoreversion
-          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "build\\windows\\x64\\runner\\Release\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
           "@
           $iss | Out-File setup.iss -Encoding utf8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
