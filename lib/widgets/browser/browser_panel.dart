@@ -386,23 +386,23 @@ class _BrowserTree extends ConsumerWidget {
       final recent = ref.watch(recentProjectsProvider);
       allItems = recent.when(
         data: (files) => files.map((f) => _PlaceholderItem.file(f.path, f.path.split('/').last)).toList(),
-        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
-        error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded)],
+        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded, tag: null)],
+        error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded, tag: null)],
       );
     } else if (tab == BrowserTab.presets) {
       final presets = ref.watch(browserPresetsProvider);
       allItems = presets
-          .map((p) => _PlaceholderItem(p.$1, p.$2))
+          .map((p) => _PlaceholderItem(p.$1, p.$2, tag: null))
           .toList();
     } else {
       final samples = ref.watch(browserSamplesProvider);
       allItems = samples.when(
         data: (files) => [
-          _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded),
+          _PlaceholderItem('browser.importAudio'.tr(), Icons.audio_file_rounded, tag: null),
           ...files.map((f) => _PlaceholderItem.file(f.path, f.path.split('/').last)),
         ],
-        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
-        error: (_, __) => [_PlaceholderItem('Error loading samples', Icons.error_outline_rounded)],
+        loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded, tag: null)],
+        error: (_, __) => [_PlaceholderItem('Error loading samples', Icons.error_outline_rounded, tag: null)],
       );
     }
 
@@ -436,10 +436,12 @@ class _BrowserTree extends ConsumerWidget {
 class _PlaceholderItem {
   final String label;
   final IconData icon;
-  const _PlaceholderItem(this.label, this.icon);
+  final String? tag;
+  const _PlaceholderItem(this.label, this.icon, {this.tag});
 
   const _PlaceholderItem.file(String path, this.label)
-      : icon = Icons.folder_rounded;
+      : icon = Icons.folder_rounded,
+        tag = path;
 }
 
 class _BrowserListItem extends StatefulWidget {
