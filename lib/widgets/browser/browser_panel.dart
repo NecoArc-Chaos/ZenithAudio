@@ -387,7 +387,7 @@ class _BrowserTree extends ConsumerWidget {
     if (tab == BrowserTab.projects) {
       final recent = ref.watch(recentProjectsProvider);
       allItems = recent.when(
-        data: (files) => files.map((f) => _PlaceholderItem.file(f.path, f.name)).toList(),
+        data: (files) => files.map((f) => _PlaceholderItem.file(f.path, f.path.split('/').last)).toList(),
         loading: () => [_PlaceholderItem('Loading...', Icons.hourglass_empty_rounded)],
         error: (_, __) => [_PlaceholderItem('Error loading projects', Icons.error_outline_rounded)],
       );

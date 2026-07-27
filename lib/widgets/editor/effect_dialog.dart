@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../core/utils/logger.dart';
 import '../../../services/wav_encoder.dart';
 
 /// Result from an effect dialog: [samples] is null if cancelled.
