@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/project.dart';
 import '../models/track.dart';
+import '../core/constants/app_constants.dart';
 import '../models/note.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';

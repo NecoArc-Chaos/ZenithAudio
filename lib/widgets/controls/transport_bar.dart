@@ -106,7 +106,7 @@ class TransportBar extends ConsumerWidget {
                           action: SnackBarAction(
                             label: 'settings'.tr(),
                             onPressed: () {
-                              OpenAppSettings.open();
+                              OpenAppSettings.openAppSettings();
                             },
                           ),
                         ),

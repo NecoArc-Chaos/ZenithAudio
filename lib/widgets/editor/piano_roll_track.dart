@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/track.dart';
 import '../../models/note.dart';
+import '../../core/constants/app_constants.dart';
 import 'dart:math' as math;
 
 /// Miniature piano-roll preview for an instrument track.

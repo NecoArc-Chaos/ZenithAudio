@@ -13,6 +13,7 @@ import '../../models/project.dart';
 import '../../models/instrument.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/playback_provider.dart';
+import '../../core/constants/app_constants.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/synth_service.dart';
 import '../../services/audio_service.dart';
