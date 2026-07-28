@@ -42,7 +42,7 @@ dependencies:
   path_provider: ^2.1.5
   easy_localization: ^3.0.7
   logger: ^2.5.0
-  record: ^6.2.1
+  record: ^5.2.1
   archive: ^4.0.2
   shared_preferences: ^2.3.4
   app_settings: ^6.1.1
