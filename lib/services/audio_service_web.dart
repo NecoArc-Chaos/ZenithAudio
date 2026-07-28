@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
-import '../models/instrument.dart';
 import '../core/utils/logger.dart';
 
 final audioServiceProvider = Provider<AudioService>((ref) {
