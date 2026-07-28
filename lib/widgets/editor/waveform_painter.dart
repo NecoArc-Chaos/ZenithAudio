@@ -92,7 +92,6 @@ class WaveformPainter extends CustomPainter {
 
       final x = px.toDouble();
       final yTop = centerY - maxVal * centerY;
-      final yBottom = centerY - minVal * centerY;
 
       if (!started) {
         path.moveTo(x, yTop);

@@ -355,7 +355,9 @@ class _AudioClipEditorState extends ConsumerState<AudioClipEditor> {
       offset += 2;
     }
     void ws(String s) {
-      for (int i = 0; i < s.length; i++) data[offset++] = s.codeUnitAt(i);
+      for (int i = 0; i < s.length; i++) {
+        data[offset++] = s.codeUnitAt(i);
+      }
     }
     ws('RIFF'); w4(fileSize - 8); ws('WAVE');
     ws('fmt '); w4(16); w2(1); w2(1); w4(sampleRate);

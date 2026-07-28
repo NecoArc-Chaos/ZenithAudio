@@ -66,6 +66,9 @@ class ProjectNotifier extends Notifier<Project> {
       ref.read(audioServiceProvider).dispose();
       _autoSaveTimer?.cancel();
     });
+    // Restart auto-save whenever settings change.
+    ref.listen<SettingsState>(settingsProvider, (_, _) => startAutoSave());
+    // Start once on first build.
     WidgetsBinding.instance.addPostFrameCallback((_) => startAutoSave());
     return Project(id: _uuid.v4(), name: 'untitled');
   }
@@ -79,6 +82,7 @@ class ProjectNotifier extends Notifier<Project> {
       name: p.name,
       tracks: p.tracks.map((t) => t.copyWith(
         notes: t.notes.map((n) => n.copyWith()).toList(),
+        stepPattern: List<bool>.from(t.stepPattern),
       )).toList(),
       sampleRate: p.sampleRate,
       timeSignatureNumerator: p.timeSignatureNumerator,
@@ -128,6 +132,10 @@ class ProjectNotifier extends Notifier<Project> {
 
   Future<void> _autoSave() async {
     if (!_isDirty) return;
+    if (kIsWeb) {
+      // Auto-save is not supported on web yet.
+      return;
+    }
     try {
       final audioBytes = <String, Uint8List>{};
       final serializer = ProjectSerializer();
@@ -145,6 +153,7 @@ class ProjectNotifier extends Notifier<Project> {
 
   /// Check if an auto-save cache exists for recovery.
   static Future<String?> findAutoSaveCache(String projectId) async {
+    if (kIsWeb) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
       final path = '${dir.path}/.autosave/$projectId.zap';
@@ -155,6 +164,7 @@ class ProjectNotifier extends Notifier<Project> {
 
   /// Check for auto-save cache on startup and offer recovery.
   static Future<void> checkForAutoSaveRecovery(BuildContext context, WidgetRef ref) async {
+    if (kIsWeb) return;
     try {
       final dir = await getApplicationDocumentsDirectory();
       final autoDir = Directory('${dir.path}/.autosave');
@@ -213,6 +223,7 @@ class ProjectNotifier extends Notifier<Project> {
 
   /// Clear auto-save cache after manual save.
   Future<void> clearAutoSaveCache() async {
+    if (kIsWeb) return;
     try {
       final dir = await getApplicationDocumentsDirectory();
       final path = '${dir.path}/.autosave/${state.id}.zap';
@@ -574,20 +585,17 @@ class ProjectNotifier extends Notifier<Project> {
     _pushUndo();
     _markDirty();
     bpm = bpm.clamp(20, 300);
-    final speed = bpm / referenceBpm;
-    state = state.copyWith(bpm: bpm, playbackSpeed: speed);
-    ref.read(audioServiceProvider).setPlaybackSpeed(speed);
-    AppLogger.i('BPM: ${bpm.toStringAsFixed(1)} (speed: ${speed.toStringAsFixed(3)}x)');
+    state = state.copyWith(bpm: bpm);
+    AppLogger.i('BPM: ${bpm.toStringAsFixed(1)}');
   }
 
   void setPlaybackSpeed(double speed) {
     _pushUndo();
     _markDirty();
     speed = speed.clamp(0.25, 4.0);
-    final bpm = speed * referenceBpm;
-    state = state.copyWith(playbackSpeed: speed, bpm: bpm);
+    state = state.copyWith(playbackSpeed: speed);
     ref.read(audioServiceProvider).setPlaybackSpeed(speed);
-    AppLogger.i('Playback speed: ${speed.toStringAsFixed(2)}x (BPM: ${bpm.toStringAsFixed(1)})');
+    AppLogger.i('Playback speed: ${speed.toStringAsFixed(2)}x');
   }
 
   Future<void> forceNewProject() async {

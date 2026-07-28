@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/track.dart';
 import '../models/instrument.dart';
 import '../core/utils/logger.dart';
+import 'wav_encoder.dart';
 
 final audioServiceProvider = Provider<AudioService>((ref) {
   final service = AudioService();
@@ -142,6 +143,15 @@ class AudioService {
     final cached = _wavCache[track.id];
     if (cached != null && cached.noteHash == noteHash) {
       return cached.path;
+    }
+    // Clean up old cached WAV for this track if notes changed.
+    if (cached != null) {
+      try {
+        final oldFile = File(cached.path);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      } catch (_) {}
     }
 
     const maxDur = 120.0;
@@ -380,6 +390,15 @@ class AudioService {
 
   Future<void> dispose() async {
     await unloadAll();
+    // Clean up cached WAV files.
+    for (final entry in _wavCache.values) {
+      try {
+        final file = File(entry.path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
     _wavCache.clear();
   }
 }
@@ -387,29 +406,7 @@ class AudioService {
 // ── Top-level WAV synthesis (usable with Flutter.compute) ──
 
 Uint8List _encodeWav(Float64List buffer, int numSamples, int sampleRate) {
-  final bytesPerSample = 2;
-  final dataSize = numSamples * bytesPerSample;
-  final fileSize = 44 + dataSize;
-  final result = _DataWriter(fileSize);
-  result.writeString('RIFF');
-  result.writeInt32(fileSize - 8);
-  result.writeString('WAVE');
-  result.writeString('fmt ');
-  result.writeInt32(16);
-  result.writeInt16(1);
-  result.writeInt16(1);
-  result.writeInt32(sampleRate);
-  result.writeInt32(sampleRate * bytesPerSample);
-  result.writeInt16(bytesPerSample);
-  result.writeInt16(16);
-  result.writeString('data');
-  result.writeInt32(dataSize);
-  for (int i = 0; i < numSamples; i++) {
-    final clamped = buffer[i].clamp(-1.0, 1.0);
-    final sample = (clamped * 32767).round().clamp(-32768, 32767);
-    result.writeInt16(sample);
-  }
-  return result.bytes;
+  return WavEncoder.encode(buffer, numSamples, sampleRate);
 }
 
 /// Top-level synth + encode function for use with [compute].
@@ -449,30 +446,12 @@ Uint8List _synthAndEncodeWav(Map<String, dynamic> params) {
   }
   if (maxAmp > 0 && maxAmp > 0.95) {
     final scale = 0.95 / maxAmp;
-    for (int i = 0; i < buffer.length; i++) buffer[i] *= scale;
+    for (int i = 0; i < buffer.length; i++) {
+      buffer[i] *= scale;
+    }
   }
 
   return _encodeWav(buffer, numSamples, sampleRate);
 }
 
-class _DataWriter {
-  final List<int> _data;
-  int _offset = 0;
-  _DataWriter(int size) : _data = List.filled(size, 0);
-  Uint8List get bytes => Uint8List.fromList(_data);
-  void writeString(String s) {
-    for (int i = 0; i < s.length; i++) {
-      _data[_offset++] = s.codeUnitAt(i);
-    }
-  }
-  void writeInt32(int value) {
-    _data[_offset++] = value & 0xFF;
-    _data[_offset++] = (value >> 8) & 0xFF;
-    _data[_offset++] = (value >> 16) & 0xFF;
-    _data[_offset++] = (value >> 24) & 0xFF;
-  }
-  void writeInt16(int value) {
-    _data[_offset++] = value & 0xFF;
-    _data[_offset++] = (value >> 8) & 0xFF;
-  }
-}
+

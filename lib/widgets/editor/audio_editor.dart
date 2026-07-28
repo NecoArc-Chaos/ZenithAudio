@@ -363,7 +363,6 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
                 key: ValueKey(fw.id),
                 windowId: fw.id,
                 title: fw.title,
-                child: fw.builder(context),
                 initialSize: fw.size,
                 initialPosition: fw.position,
                 isMinimized: fw.isMinimized,
@@ -372,6 +371,7 @@ class _AudioEditorState extends ConsumerState<AudioEditor> {
                 onMove: () => notifier.bringToFront(fw.id),
                 onPositionChanged: (pos) => notifier.updatePosition(fw.id, pos),
                 onSizeChanged: (size) => notifier.updateSize(fw.id, size),
+                child: fw.builder(context),
               );
             }),
           ],
