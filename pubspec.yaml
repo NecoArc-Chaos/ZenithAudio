@@ -45,12 +45,7 @@ dependencies:
   record: ^7.1.1
   archive: ^4.0.2
   shared_preferences: ^2.3.4
-dependency_overrides:
-  media_kit:
-    git:
-      url: https://github.com/media-kit/media-kit.git
-      ref: 7762e2cf540d6f14e7b1fe8f4e62e0680cb5f48f
-      path: media_kit
+dependency_overrides: {}
 
 dev_dependencies:
   flutter_test:

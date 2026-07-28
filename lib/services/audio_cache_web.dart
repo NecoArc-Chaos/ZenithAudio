@@ -4,7 +4,10 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
-JSObject _j(Object v) => JSObject.fromInteropObject(v);
+JSObject _j(Object? v) {
+  if (v == null) throw ArgumentError('JS interop object is null');
+  return JSObject.fromInteropObject(v);
+}
 
 class AudioCache {
   static const _dbName = 'zenith_audio_cache';
