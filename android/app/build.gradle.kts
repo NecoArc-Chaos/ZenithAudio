@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "io.qzz.luolingy.zenithaudio"
-    compileSdk = 36
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,37 +20,17 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = 36
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            signingConfig = if (File("$projectDir/key.properties").exists()) {
-                val keystoreProperties = java.util.Properties()
-                keystoreProperties.load(java.io.FileInputStream("$projectDir/key.properties"))
-                val storeFilePath = keystoreProperties.getProperty("storeFile") ?: ""
-                val storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-                val keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-                val keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
-
-                signingConfigs.create("release") {
-                    storeFile = file(storeFilePath)
-                    storePassword = storePassword
-                    keyAlias = keyAlias
-                    keyPassword = keyPassword
-                }
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
