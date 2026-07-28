@@ -237,10 +237,6 @@ class AudioService {
     if (track.type == TrackType.audio) return track.audioFilePath != null;
     return _cachedPaths.containsKey(track.id);
   }
-
-  void dispose() {
-    unloadAll();
-  }
 }
 
 class _TrackPlayer {
