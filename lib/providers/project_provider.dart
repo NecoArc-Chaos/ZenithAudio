@@ -67,7 +67,7 @@ class ProjectNotifier extends Notifier<Project> {
       _autoSaveTimer?.cancel();
     });
     // Restart auto-save whenever settings change.
-    ref.listen<SettingsState>(settingsProvider, (_, __) => startAutoSave());
+    ref.listen<SettingsState>(settingsProvider, (_, _) => startAutoSave());
     // Start once on first build.
     WidgetsBinding.instance.addPostFrameCallback((_) => startAutoSave());
     return Project(id: _uuid.v4(), name: 'untitled');

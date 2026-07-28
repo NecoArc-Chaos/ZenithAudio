@@ -12,7 +12,7 @@ class SpectrogramPainter extends CustomPainter {
   final Color midColor;
   final Color highColor;
 
-  int _fftSize = 1024;
+  final int _fftSize = 1024;
   int get _hopSize => _fftSize ~/ 4;
 
   SpectrogramPainter({

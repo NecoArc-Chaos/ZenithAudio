@@ -198,6 +198,7 @@ class TrackTile extends ConsumerWidget {
       ),
     );
     controller.dispose();
+    if (!context.mounted) return;
     if (newName != null && newName.trim().isNotEmpty) {
       ref.read(projectProvider.notifier).renameTrack(track.id, newName.trim());
     }
@@ -206,6 +207,7 @@ class TrackTile extends ConsumerWidget {
   Future<void> _showChangeInstrumentDialog(BuildContext context, WidgetRef ref) async {
     final current = track.instrumentName ?? 'piano';
     final instrument = await showInstrumentPicker(context, current: current);
+    if (!context.mounted) return;
     if (instrument != null) {
       ref.read(projectProvider.notifier).setTrackInstrument(track.id, instrument);
     }
@@ -260,6 +262,7 @@ class TrackTile extends ConsumerWidget {
         ],
       ),
     );
+    if (!context.mounted) return;
     if (confirmed == true) {
       ref.read(projectProvider.notifier).removeTrack(track.id);
     }

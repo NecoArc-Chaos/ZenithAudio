@@ -446,7 +446,9 @@ Uint8List _synthAndEncodeWav(Map<String, dynamic> params) {
   }
   if (maxAmp > 0 && maxAmp > 0.95) {
     final scale = 0.95 / maxAmp;
-    for (int i = 0; i < buffer.length; i++) buffer[i] *= scale;
+    for (int i = 0; i < buffer.length; i++) {
+      buffer[i] *= scale;
+    }
   }
 
   return _encodeWav(buffer, numSamples, sampleRate);
