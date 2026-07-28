@@ -51,3 +51,59 @@ jobs:
         run: flutter pub get
       - name: Build Linux
         run: flutter build linux --release
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Build Windows
+        run: flutter build windows --release
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Build macOS
+        run: flutter build macos --release
+
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Build Android APK
+        run: flutter build apk --release
+
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
