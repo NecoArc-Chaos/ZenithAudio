@@ -45,7 +45,7 @@ dependencies:
   record: ^6.2.1
   archive: ^4.0.2
   shared_preferences: ^2.3.4
-  app_settings: ^6.1.1
+  app_settings: ^8.0.3
 dependency_overrides: {}
 
 dev_dependencies:
