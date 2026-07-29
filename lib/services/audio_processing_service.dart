@@ -62,7 +62,9 @@ class AudioProcessingService {
   /// Remove DC offset (subtract mean).
   static Float64List removeDCOffset(Float64List samples) {
     double sum = 0;
-    for (final s in samples) sum += s;
+    for (final s in samples) {
+      sum += s;
+    }
     final mean = sum / samples.length;
     if (mean.abs() < 1e-10) return Float64List.fromList(samples);
     final result = Float64List(samples.length);
@@ -290,7 +292,9 @@ class AudioProcessingService {
       if (a > peak) peak = a;
     }
     if (peak > 1) {
-      for (int i = 0; i < result.length; i++) result[i] /= peak;
+      for (int i = 0; i < result.length; i++) {
+        result[i] /= peak;
+      }
     }
     return result;
   }

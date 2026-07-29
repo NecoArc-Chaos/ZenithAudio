@@ -49,7 +49,9 @@ class FftService {
   /// In-place radix-2 IFFT.
   static void ifft(Float64List real, Float64List imag) {
     final n = real.length;
-    for (int i = 0; i < n; i++) imag[i] = -imag[i];
+    for (int i = 0; i < n; i++) {
+      imag[i] = -imag[i];
+    }
     fft(real, imag);
     for (int i = 0; i < n; i++) {
       real[i] /= n;

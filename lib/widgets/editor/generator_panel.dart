@@ -202,6 +202,7 @@ class _GeneratorPanelState extends State<GeneratorPanel> {
 
   Uint8List _encodeWav(Float64List buffer) {
     return WavEncoder.encode(buffer, buffer.length, WaveformGenerator.defaultSampleRate);
+
   }
 }
 

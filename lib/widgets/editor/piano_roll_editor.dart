@@ -658,8 +658,11 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
     if (_viewportMode == ViewportMode.select) {
       if (idx >= 0) {
         _safeSetState(() {
-          if (_selectedIndices.contains(idx)) _selectedIndices.remove(idx);
-          else _selectedIndices.add(idx);
+          if (_selectedIndices.contains(idx)) {
+            _selectedIndices.remove(idx);
+          } else {
+            _selectedIndices.add(idx);
+          }
         });
       } else {
         _safeSetState(() => _selectedIndices.clear());

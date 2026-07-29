@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,8 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 class AudioService {
   final Map<String, _TrackPlayer> _players = {};
   final Map<String, String> _cachedPaths = {};
+  final Set<String> _blobUrls = {};
+  bool _isPlaying = false;
   double _masterVolume = 1.0;
 
   final Map<String, bool> _trackMutes = {};
@@ -93,6 +96,9 @@ class AudioService {
       });
 
       _players[trackId] = tp;
+      if (path.startsWith('blob:')) {
+        _blobUrls.add(path);
+      }
     } catch (e) {
       AppLogger.e('loadTrackFromPath failed: $e');
     }
@@ -249,6 +255,7 @@ class AudioService {
       tp.positionSub?.cancel();
       tp.endedSub?.cancel();
       tp.element.pause();
+      _revokeBlobUrl(tp.element.src);
       tp.element.removeAttribute('src');
       tp.element.load();
     }
@@ -261,12 +268,33 @@ class AudioService {
       p.positionSub?.cancel();
       p.endedSub?.cancel();
       p.element.pause();
+      _revokeBlobUrl(p.element.src);
       p.element.removeAttribute('src');
       p.element.load();
     }
     _players.clear();
     _trackMutes.clear();
     _trackSolos.clear();
+  }
+
+  void _revokeBlobUrl(String? url) {
+    if (url != null && url.startsWith('blob:')) {
+      try {
+        html.Url.revokeObjectUrl(url);
+        _blobUrls.remove(url);
+      } catch (_) {}
+    }
+  }
+
+  void dispose() {
+    unloadAll();
+    // Revoke any remaining tracked blob URLs.
+    for (final url in _blobUrls) {
+      try {
+        html.Url.revokeObjectUrl(url);
+      } catch (_) {}
+    }
+    _blobUrls.clear();
   }
 
   String? getCachedTrackPath(String trackId) => _cachedPaths[trackId];
@@ -280,10 +308,6 @@ class AudioService {
   bool isTrackCached(Track track) {
     if (track.type == TrackType.audio) return track.audioFilePath != null;
     return _cachedPaths.containsKey(track.id);
-  }
-
-  void dispose() {
-    unloadAll();
   }
 }
 

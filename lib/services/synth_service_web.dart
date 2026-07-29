@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'dart:math';
 import 'dart:typed_data';
@@ -102,3 +103,5 @@ class SynthService {
     return _encodeWav(buffer, buffer.length);
   }
 }
+
+

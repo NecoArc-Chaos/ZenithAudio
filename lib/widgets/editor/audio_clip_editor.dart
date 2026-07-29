@@ -340,6 +340,7 @@ class _AudioClipEditorState extends ConsumerState<AudioClipEditor> {
 
   Uint8List _encodeWav(Float64List buffer) {
     return WavEncoder.encode(buffer, buffer.length, 44100);
+
   }
 
   Future<String?> _trySave() async {

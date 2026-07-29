@@ -259,6 +259,7 @@ class AudioToolBar extends ConsumerWidget {
           final idx = ref.read(projectProvider).tracks.length + 1;
           ref.read(projectProvider.notifier).addTrack(name: 'Track $idx');
         case 'addInst':
+          // ignore: use_build_context_synchronously
           showInstrumentPicker(context).then((inst) {
             if (inst == null) return;
             final idx = ref.read(projectProvider).tracks.length + 1;
@@ -266,7 +267,9 @@ class AudioToolBar extends ConsumerWidget {
               name: 'Track $idx', instrumentName: inst,
             );
           });
+        // ignore: use_build_context_synchronously
         case 'settings': Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsPage()));
+        // ignore: use_build_context_synchronously
         case 'about': showDialog(context: context, builder: (_) => const app.AboutDialog());
       }
     });

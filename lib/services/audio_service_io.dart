@@ -153,6 +153,15 @@ class AudioService {
       _wavCache[track.id] = _WavCache(cached.path, cached.noteHash, DateTime.now());
       return cached.path;
     }
+    // Clean up old cached WAV for this track if notes changed.
+    if (cached != null) {
+      try {
+        final oldFile = File(cached.path);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      } catch (_) {}
+    }
 
     _evictOldestWavIfNeeded();
 
@@ -556,7 +565,9 @@ Uint8List _synthAndEncodeWav(Map<String, dynamic> params) {
   }
   if (maxAmp > 0 && maxAmp > 0.95) {
     final scale = 0.95 / maxAmp;
-    for (int i = 0; i < buffer.length; i++) buffer[i] *= scale;
+    for (int i = 0; i < buffer.length; i++) {
+      buffer[i] *= scale;
+    }
   }
 
   return WavEncoder.encode(buffer, numSamples, sampleRate);

@@ -98,7 +98,9 @@ class WaveformGenerator {
         mask <<= 1;
       }
       double sum = 0;
-      for (final v in rows) sum += v;
+      for (final v in rows) {
+        sum += v;
+      }
       result[i] = (sum / numRows) * amplitude;
     }
     return result;

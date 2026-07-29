@@ -252,6 +252,7 @@ class _EffectDialogState extends State<_EffectDialog> {
 
   Uint8List _encodeWavPreview(Float64List buffer, int sampleRate) {
     return WavEncoder.encode(buffer, buffer.length, sampleRate);
+
   }
 }
 
