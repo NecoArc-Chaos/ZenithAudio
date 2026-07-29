@@ -121,8 +121,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         behavior: SnackBarBehavior.floating,
       ),
-      // ignore: argument_type_not_assignable
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: cs.surfaceContainer,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
