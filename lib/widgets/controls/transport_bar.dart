@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:app_settings/app_settings.dart';
+import 'package:open_app_settings/open_app_settings.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/theme_colors.dart';
 import '../../services/audio_service.dart';
@@ -106,7 +106,7 @@ class TransportBar extends ConsumerWidget {
                           action: SnackBarAction(
                             label: 'settings'.tr(),
                             onPressed: () {
-                              AppSettings.openAppSettings();
+                              OpenAppSettings.openAppSettings();
                             },
                           ),
                         ),
