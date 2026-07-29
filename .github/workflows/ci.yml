@@ -34,6 +34,12 @@ jobs:
         run: flutter pub get
       - name: Build web
         run: flutter build web --release
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web/
+          retention-days: 14
 
   build-linux:
     name: Build Linux
@@ -51,6 +57,12 @@ jobs:
         run: flutter pub get
       - name: Build Linux
         run: flutter build linux --release
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: build/linux/x64/release/bundle/
+          retention-days: 14
 
   build-windows:
     name: Build Windows
@@ -64,6 +76,12 @@ jobs:
         run: flutter pub get
       - name: Build Windows
         run: flutter build windows --release
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/windows/x64/Release/
+          retention-days: 14
 
   build-macos:
     name: Build macOS
@@ -77,6 +95,12 @@ jobs:
         run: flutter pub get
       - name: Build macOS
         run: flutter build macos --release
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: build/macos/Build/Products/Release/
+          retention-days: 14
 
   build-android:
     name: Build Android
@@ -94,6 +118,12 @@ jobs:
         run: flutter pub get
       - name: Build Android APK
         run: flutter build apk --release
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
 
   build-ios:
     name: Build iOS
@@ -107,3 +137,9 @@ jobs:
         run: flutter pub get
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: build/ios/iphoneos/Runner.app
+          retention-days: 14
