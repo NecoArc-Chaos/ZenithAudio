@@ -158,3 +158,4 @@ jobs:
           name: ios-build
           path: build/ios/iphoneos/Runner.app
           retention-days: 14
+        if: success()
