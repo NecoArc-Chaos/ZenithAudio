@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../core/utils/logger.dart';
@@ -24,7 +25,7 @@ bool isWavFile(String path) {
   }
 }
 
-Future<String?> convertToWav(String sourcePath) async {
+Future<String?> convertToWav(String sourcePath, [BuildContext? context]) async {
   if (isWavFile(sourcePath)) return sourcePath;
 
   try {
@@ -49,17 +50,37 @@ Future<String?> convertToWav(String sourcePath) async {
         }
 
         AppLogger.e('ffmpeg conversion failed (exit ${result.exitCode}): ${result.stderr}');
+        if (context != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('音频转换失败：ffmpeg 返回错误')),
+          );
+        }
         return null;
       } catch (e) {
         AppLogger.e('ffmpeg not available or failed', e);
+        if (context != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('音频转换失败：ffmpeg 不可用或执行出错')),
+          );
+        }
         return null;
       }
     }
 
     AppLogger.w('Audio conversion not supported on this platform');
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('当前平台不支持音频转换')),
+      );
+    }
     return null;
   } catch (e) {
     AppLogger.e('Failed to convert audio', e);
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('音频转换时发生未知错误')),
+      );
+    }
     return null;
   }
 }

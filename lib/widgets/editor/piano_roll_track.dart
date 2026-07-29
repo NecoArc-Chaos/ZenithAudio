@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/track.dart';
 import '../../models/note.dart';
+import '../../core/constants/app_constants.dart';
 import 'dart:math' as math;
 
 /// Miniature piano-roll preview for an instrument track.
@@ -20,8 +21,8 @@ class PianoRollTrack extends StatelessWidget {
   });
 
   static const double _height = 80;
-  static const int _minNote = 12; // C0
-  static const int _maxNote = 108; // C8
+  static const int _minNote = AppConstants.pianoRollMinNote;
+  static const int _maxNote = AppConstants.pianoRollMaxNote;
 
   @override
   Widget build(BuildContext context) {

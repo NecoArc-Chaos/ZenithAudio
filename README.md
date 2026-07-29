@@ -1,17 +1,63 @@
-# zenith_audio
+# 卓声 ZENITH AUDIO
 
-A new Flutter project.
+A cross-platform audio editor and DAW-style music production tool built with Flutter.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- Multi-track audio editing with waveform view
+- Piano roll editor for MIDI/instrument tracks
+- Built-in synthesizer with multiple instrument presets
+- Real-time audio effects (gain, fade, reverb, delay, EQ, pitch shift, etc.)
+- Mixer panel with per-track volume, pan, mute, solo
+- Project save/load (.zap format with embedded audio)
+- Auto-save and recovery
+- Cross-platform: Windows, macOS, Linux, Android, iOS, Web
 
-A few resources to get you started if this is your first Flutter project:
+## Tech Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter 3.x
+- Riverpod for state management
+- media_kit for audio playback
+- Custom WAV synthesis engine
+- FFT-based frequency splitting and spectrum filtering
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Building
+
+```bash
+flutter pub get
+flutter run
+```
+
+### Android Release Signing
+
+Copy `android/key.properties.example` to `android/key.properties` and fill in your keystore details:
+
+```properties
+storeFile=/path/to/your/upload-keystore.jks
+storePassword=your-keystore-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
+```
+
+Then build a release APK:
+
+```bash
+flutter build apk --release
+```
+
+For more release build options, see `.github/workflows/build.yml`.
+
+## Project Structure
+
+```
+lib/
+  models/        - Project, Track, Note, Instrument
+  providers/     - Riverpod state management
+  screens/       - Top-level screens
+  services/      - Audio engine, synthesis, serialization, effects
+  widgets/       - Editor UI, mixer, browser, toolbar
+```
+
+## License
+
+MIT

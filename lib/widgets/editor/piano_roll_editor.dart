@@ -49,9 +49,9 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
   static bool _isMobilePlatform() =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  static const int _minNote = 12;
-  static const int _maxNote = 108;
-  static const int _noteCount = _maxNote - _minNote + 1;
+  static const int _minNote = AppConstants.pianoRollMinNote;
+  static const int _maxNote = AppConstants.pianoRollMaxNote;
+  static const int _noteCount = AppConstants.pianoRollNoteCount;
 
   ViewportMode _viewportMode = ViewportMode.edit;
   final Set<int> _selectedIndices = {};
@@ -468,6 +468,11 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
         ? const NeverScrollableScrollPhysics()
         : null;
 
+    // Slice the grid into time windows to limit single-paint area.
+    final barSec = beatSec * project.timeSignatureNumerator;
+    final sliceDuration = 4 * barSec; // 4 bars per slice
+    final sliceCount = (totalTime / sliceDuration).ceil();
+
     return Scrollbar(
       controller: _hScrollCtrl,
       child: SingleChildScrollView(
@@ -491,29 +496,42 @@ class _PianoRollEditorState extends ConsumerState<PianoRollEditor> {
                   onPanStart: (details) => _onPanStart(details, track),
                   onPanUpdate: (details) => _onPanUpdate(details),
                   onPanEnd: (details) => _onPanEnd(track),
-                  child: CustomPaint(
-                    size: Size(totalWidth, _noteCount * _noteRowHeight),
-                    painter: _PianoRollEditorPainter(
-                      notes: notes,
-                      pps: _pps,
-                      noteRowHeight: _noteRowHeight,
-                      minNote: _minNote,
-                      maxNote: _maxNote,
-                      beatSec: beatSec,
-                      timeSigNum: project.timeSignatureNumerator,
-                      gridColor: const Color(0xFF2A2A2A),
-                      beatColor: const Color(0xFF3A3A3A),
-                      barColor: const Color(0xFF00AAFF).withAlpha(38),
-                      noteColor: track.color,
-                      selectedIndices: _selectedIndices,
-                      dragNoteIndex: _dragNoteIndex,
-                      accentColor: AppColors.accent,
-                      ghostRects: _ghostRects,
-                      playPos: isPlaying ? playhead : null,
-                      playheadColor: cs.primary,
-                      scalePcs: _scalePitchClasses(project.keySignature),
-                    selectionRect: _selectionRect,
-                    ),
+                  child: Row(
+                    children: List.generate(sliceCount, (i) {
+                      final startTime = i * sliceDuration;
+                      final endTime = min(startTime + sliceDuration, totalTime);
+                      final sliceWidth = (endTime - startTime) * _pps;
+                      return SizedBox(
+                        width: sliceWidth,
+                        height: _noteCount * _noteRowHeight,
+                        child: CustomPaint(
+                          painter: _PianoRollSlicePainter(
+                            notes: notes,
+                            pps: _pps,
+                            noteRowHeight: _noteRowHeight,
+                            minNote: _minNote,
+                            maxNote: _maxNote,
+                            beatSec: beatSec,
+                            timeSigNum: project.timeSignatureNumerator,
+                            gridColor: const Color(0xFF2A2A2A),
+                            beatColor: const Color(0xFF3A3A3A),
+                            barColor: const Color(0xFF00AAFF).withAlpha(38),
+                            noteColor: track.color,
+                            selectedIndices: _selectedIndices,
+                            dragNoteIndex: _dragNoteIndex,
+                            accentColor: AppColors.accent,
+                            ghostRects: _ghostRects,
+                            playPos: isPlaying ? playhead : null,
+                            playheadColor: cs.primary,
+                            scalePcs: _scalePitchClasses(project.keySignature),
+                            selectionRect: _selectionRect,
+                            scrollOffset: _gridVScrollCtrl.hasClients ? _gridVScrollCtrl.offset : 0.0,
+                            sliceStartTime: startTime,
+                            sliceEndTime: endTime,
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ),
@@ -910,7 +928,7 @@ class _MiniTransportButton extends StatelessWidget {
 
 // ─────────────────── Painter ───────────────────
 
-class _PianoRollEditorPainter extends CustomPainter {
+class _PianoRollSlicePainter extends CustomPainter {
   final List<Note> notes;
   final double pps;
   final double noteRowHeight;
@@ -930,8 +948,11 @@ class _PianoRollEditorPainter extends CustomPainter {
   final Color playheadColor;
   final Set<int> scalePcs;
   final Rect? selectionRect;
+  final double scrollOffset;
+  final double sliceStartTime;
+  final double sliceEndTime;
 
-  _PianoRollEditorPainter({
+  _PianoRollSlicePainter({
     required this.notes,
     required this.pps,
     required this.noteRowHeight,
@@ -951,13 +972,24 @@ class _PianoRollEditorPainter extends CustomPainter {
     required this.playheadColor,
     this.scalePcs = const {},
     this.selectionRect,
+    required this.scrollOffset,
+    required this.sliceStartTime,
+    required this.sliceEndTime,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..strokeWidth = 0.5;
+    final visibleTop = scrollOffset;
+    final visibleBottom = scrollOffset + size.height;
 
-    for (int p = minNote; p <= maxNote; p++) {
+    // Cull background rows outside visible area
+    final firstVisiblePitch = maxNote - (visibleBottom / noteRowHeight).ceil();
+    final lastVisiblePitch = maxNote - (visibleTop / noteRowHeight).floor();
+    final startP = max(minNote, firstVisiblePitch);
+    final endP = min(maxNote, lastVisiblePitch);
+
+    for (int p = startP; p <= endP; p++) {
       final pc = p % 12;
       final inScale = scalePcs.contains(pc);
       final isTonic = scalePcs.isNotEmpty && pc == scalePcs.first;
@@ -975,24 +1007,26 @@ class _PianoRollEditorPainter extends CustomPainter {
     }
 
     final barSec = beatSec * timeSigNum;
-    for (double t = 0; t < size.width / pps; t += beatSec) {
-      final x = t * pps;
+    for (double t = sliceStartTime; t < sliceEndTime; t += beatSec) {
+      final x = (t - sliceStartTime) * pps;
       if (x > size.width) break;
-      final isBar = (t / barSec).round() * barSec == t && t > 0;
+      final isBar = barSec > 0 && (t / barSec).remainder(1) < 1e-9 && t > 0;
       paint.color = isBar ? barColor : beatColor;
       paint.strokeWidth = isBar ? 1.5 : 0.5;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      canvas.drawLine(Offset(x, visibleTop), Offset(x, visibleBottom), paint);
     }
 
     paint.strokeWidth = 0.5;
     paint.color = gridColor;
-    for (int i = 0; i <= (maxNote - minNote); i++) {
+    for (int i = startP; i <= endP; i++) {
       if (i % 12 == 0) continue;
-      canvas.drawLine(Offset(0, i * noteRowHeight), Offset(size.width, i * noteRowHeight), paint);
+      final y = _pitchToY(i);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
 
     for (final r in ghostRects) {
-      final ghostRRect = RRect.fromRectAndRadius(r, const Radius.circular(2));
+      final localR = r.translate(-sliceStartTime * pps, 0);
+      final ghostRRect = RRect.fromRectAndRadius(localR, const Radius.circular(2));
       canvas.drawRRect(ghostRRect, Paint()..color = noteColor.withAlpha(40));
       canvas.drawRRect(ghostRRect, Paint()
         ..style = PaintingStyle.stroke
@@ -1002,10 +1036,16 @@ class _PianoRollEditorPainter extends CustomPainter {
 
     for (int i = 0; i < notes.length; i++) {
       final n = notes[i];
-      if (n.pitch < minNote || n.pitch > maxNote) continue;
+      if (n.pitch < startP || n.pitch > endP) continue;
 
-      final x = n.startTime * pps;
-      final w = n.duration * pps;
+      final noteStart = n.startTime;
+      final noteEnd = n.startTime + n.duration;
+      if (noteEnd <= sliceStartTime || noteStart >= sliceEndTime) continue;
+
+      final drawStart = max(noteStart, sliceStartTime);
+      final drawEnd = min(noteEnd, sliceEndTime);
+      final x = (drawStart - sliceStartTime) * pps;
+      final w = (drawEnd - drawStart) * pps;
       final y = _pitchToY(n.pitch);
       final h = noteRowHeight - 1;
 
@@ -1034,11 +1074,12 @@ class _PianoRollEditorPainter extends CustomPainter {
     }
 
     if (selectionRect != null) {
+      final localRect = selectionRect!.translate(-sliceStartTime * pps, 0);
       final r = Rect.fromLTRB(
-        min(selectionRect!.left, selectionRect!.right),
-        min(selectionRect!.top, selectionRect!.bottom),
-        max(selectionRect!.left, selectionRect!.right),
-        max(selectionRect!.top, selectionRect!.bottom));
+        min(localRect.left, localRect.right),
+        min(localRect.top, localRect.bottom),
+        max(localRect.left, localRect.right),
+        max(localRect.top, localRect.bottom));
       canvas.drawRect(r, Paint()..color = accentColor.withAlpha(30));
       canvas.drawRect(r, Paint()
         ..style = PaintingStyle.stroke
@@ -1047,23 +1088,28 @@ class _PianoRollEditorPainter extends CustomPainter {
     }
 
     if (playPos != null) {
-      final phx = playPos! * pps;
-      paint.color = playheadColor;
-      paint.strokeWidth = 2;
-      canvas.drawLine(Offset(phx, 0), Offset(phx, size.height), paint);
+      final phx = (playPos! - sliceStartTime) * pps;
+      if (phx >= 0 && phx <= size.width) {
+        paint.color = playheadColor;
+        paint.strokeWidth = 2;
+        canvas.drawLine(Offset(phx, visibleTop), Offset(phx, visibleBottom), paint);
+      }
     }
   }
 
   double _pitchToY(int pitch) => (maxNote - pitch) * noteRowHeight;
 
   @override
-  bool shouldRepaint(covariant _PianoRollEditorPainter oldDelegate) =>
+  bool shouldRepaint(covariant _PianoRollSlicePainter oldDelegate) =>
       oldDelegate.notes != notes ||
       oldDelegate.pps != pps ||
       oldDelegate.noteRowHeight != noteRowHeight ||
+      oldDelegate.scrollOffset != scrollOffset ||
       oldDelegate.selectedIndices != selectedIndices ||
       oldDelegate.dragNoteIndex != dragNoteIndex ||
       oldDelegate.ghostRects != ghostRects ||
       oldDelegate.playPos != playPos ||
-      oldDelegate.selectionRect != selectionRect;
+      oldDelegate.selectionRect != selectionRect ||
+      oldDelegate.sliceStartTime != sliceStartTime ||
+      oldDelegate.sliceEndTime != sliceEndTime;
 }

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import '../services/audio_service.dart';
+import '../core/constants/app_constants.dart';
+import '../core/utils/logger.dart';
 import 'project_provider.dart';
 import 'settings_provider.dart';
 
@@ -30,7 +32,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       ref.read(playheadPositionProvider.notifier).state = pos;
       final project = ref.read(projectProvider);
       final bpm = project.bpm;
-      final stepsPerBeat = 4;
+      final stepsPerBeat = AppConstants.stepsPerBeat;
       final secondsPerStep = 60.0 / bpm / stepsPerBeat;
       final step = (pos / secondsPerStep).floor() % 16;
       ref.read(currentStepProvider.notifier).state = step;
@@ -55,38 +57,40 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
   }
 
   /// Start playback of all tracks.
-  /// [editingTrackId] — if set, the editing instrument track's WAV is
-  /// generated on a background isolate (non-blocking). Other instrument
-  /// tracks show progress while generating.
+  ///
+  /// Only loads tracks that should actually play under current solo/mute
+  /// state. Inactive tracks stay unloaded to save memory.
   Future<void> play({String? editingTrackId}) async {
     final audio = ref.read(audioServiceProvider);
     final project = ref.read(projectProvider);
 
-    await audio.unloadAll();
     ref.read(wavGenerationProgressProvider.notifier).state = 0.0;
 
-    // 1. Load audio tracks immediately (no WAV gen needed)
-    for (final track in project.tracks) {
-      if (track.type == TrackType.audio) {
-        if (track.audioFilePath != null && File(track.audioFilePath!).existsSync()) {
-          await audio.loadTrackFromPath(
-            track.id, track.audioFilePath!,
-            volume: track.volume,
-            muted: track.isMuted,
-          );
-        }
+    // Unload tracks that no longer exist in the project.
+    final activeIds = project.tracks.map((t) => t.id).toSet();
+    for (final id in List.from(audio.cachedTrackIds)) {
+      if (!activeIds.contains(id)) {
+        await audio.unloadTrack(id);
       }
     }
 
-    // 2. Determine effective volume for each track (solo/mute)
-    double effectiveVolume(Track t) {
-      final hasSolo = project.hasSoloTrack;
-      if (hasSolo) return t.isSolo ? t.volume : 0.0;
-      return t.isMuted ? 0.0 : t.volume;
+    // Determine which tracks should play (solo/mute aware).
+    final hasSolo = project.hasSoloTrack;
+    final tracksToPlay = project.tracks.where((t) {
+      if (hasSolo) return t.isSolo;
+      return !t.isMuted;
+    }).toList();
+
+    // Load only tracks that need to play.
+    final needsLoad = <Track>[];
+    for (final track in tracksToPlay) {
+      if (!audio.isTrackLoaded(track.id)) {
+        needsLoad.add(track);
+      }
     }
 
-    // 3. Prepare instrument tracks
-    final instTracks = project.tracks
+    // 1. Prepare all instrument tracks in parallel (non-blocking synthesis)
+    final instTracks = needsLoad
         .where((t) => t.type == TrackType.instrument &&
             t.instrumentName != null && t.notes.isNotEmpty)
         .toList();
@@ -95,7 +99,7 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     final editingTrack = editingTrackId != null
         ? instTracks.where((t) => t.id == editingTrackId).firstOrNull
         : null;
-    final otherTracks = instTracks.where((t) => t.id != editingTrackId).toList();
+    final otherInstTracks = instTracks.where((t) => t.id != editingTrackId).toList();
 
     // Prepare editing track WAV on background isolate (non-blocking)
     final Future<String?> editingFuture;
@@ -105,31 +109,64 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
       editingFuture = Future.value(null);
     }
 
-    // Prepare other tracks with progress
-    int done = 0;
-    final total = otherTracks.length;
-    for (final track in otherTracks) {
-      final path = await audio.prepareInstrumentTrack(track);
-      if (path != null) {
-        final vol = effectiveVolume(track);
-        await audio.loadTrackFromPath(track.id, path, volume: vol, muted: vol == 0);
-      }
-      done++;
-      ref.read(wavGenerationProgressProvider.notifier).state =
-          total > 0 ? done / total : 1.0;
-    }
+    // Prepare other instrument tracks in parallel
+    final otherInstPaths = await Future.wait(
+      otherInstTracks.map((t) => audio.prepareInstrumentTrack(t)),
+    );
 
-    // Wait for editing track's WAV
+    // Load all prepared instrument tracks in parallel
+    final otherInstLoadFutures = <Future>[];
+    for (int i = 0; i < otherInstTracks.length; i++) {
+      final path = otherInstPaths[i];
+      if (path != null) {
+        otherInstLoadFutures.add(
+          audio.loadTrackFromPath(
+            otherInstTracks[i].id,
+            path,
+            volume: otherInstTracks[i].volume,
+          ),
+        );
+      }
+    }
+    await Future.wait(otherInstLoadFutures);
+    ref.read(wavGenerationProgressProvider.notifier).state =
+        otherInstTracks.length > 0 ? 1.0 : 1.0;
+
+    // Wait for editing track's WAV and load it
     final editingPath = await editingFuture;
     if (editingPath != null && editingTrack != null) {
-      final vol = effectiveVolume(editingTrack);
-      await audio.loadTrackFromPath(editingTrack.id, editingPath, volume: vol, muted: vol == 0);
+      await audio.loadTrackFromPath(
+        editingTrack.id,
+        editingPath,
+        volume: editingTrack.volume,
+      );
     }
 
-    // 4. Ensure all loaded tracks respect solo/mute
-    for (final t in project.tracks) {
-      final vol = effectiveVolume(t);
-      audio.updateTrackVolume(t.id, vol);
+    // 2. Load audio tracks in parallel using prepareTrack (non-blocking open)
+    final audioTracks = needsLoad
+        .where((t) => t.type == TrackType.audio && t.audioFilePath != null)
+        .toList();
+
+    final audioLoadFutures = audioTracks.map((t) async {
+      try {
+        if (t.audioFilePath != null && File(t.audioFilePath!).existsSync()) {
+          final tp = await audio.prepareTrack(t.id, t.audioFilePath!);
+          if (tp != null) {
+            // Volume/mute/solo are applied below via the tracksToPlay loop
+          }
+        }
+      } catch (e) {
+        AppLogger.e('Failed to load audio track ${t.id}: ${t.audioFilePath}', e);
+      }
+    }).toList();
+
+    await Future.wait(audioLoadFutures);
+
+    // 3. Apply solo/mute state to all tracks that should play
+    for (final t in tracksToPlay) {
+      audio.updateTrackVolume(t.id, t.volume);
+      audio.setTrackMute(t.id, t.isMuted);
+      audio.setTrackSolo(t.id, t.isSolo);
     }
 
     ref.read(wavGenerationProgressProvider.notifier).state = 1.0;
@@ -147,6 +184,77 @@ class PlaybackNotifier extends Notifier<PlaybackState> {
     await ref.read(audioServiceProvider).stop();
     ref.read(playheadPositionProvider.notifier).state = 0;
     state = PlaybackState.stopped;
+  }
+
+  /// Prefetch tracks that are likely to be played soon (e.g., after
+  /// a solo/mute toggle). Does not block playback.
+  Future<void> prefetchTracks(List<Track> tracks) async {
+    final audio = ref.read(audioServiceProvider);
+    final toLoad = tracks.where((t) => !audio.isTrackLoaded(t.id)).toList();
+    if (toLoad.isEmpty) return;
+
+    // Preload audio tracks in parallel using prepareTrack
+    final audioTracks = toLoad
+        .where((t) => t.type == TrackType.audio && t.audioFilePath != null)
+        .toList();
+
+    final audioFutures = audioTracks.map((t) async {
+      try {
+        if (t.audioFilePath != null && File(t.audioFilePath!).existsSync()) {
+          final tp = await audio.prepareTrack(t.id, t.audioFilePath!);
+          if (tp != null) {
+            audio.updateTrackVolume(t.id, t.volume);
+            audio.setTrackMute(t.id, t.isMuted);
+            audio.setTrackSolo(t.id, t.isSolo);
+          }
+        }
+      } catch (e) {
+        AppLogger.e('Failed to prefetch audio track ${t.id}', e);
+      }
+    }).toList();
+
+    await Future.wait(audioFutures);
+
+    // Prepare instrument tracks in parallel
+    final instTracks = toLoad
+        .where((t) => t.type == TrackType.instrument &&
+            t.instrumentName != null && t.notes.isNotEmpty)
+        .toList();
+
+    final instPaths = await Future.wait(
+      instTracks.map((t) => audio.prepareInstrumentTrack(t)),
+    );
+
+    final instLoadFutures = <Future>[];
+    for (int i = 0; i < instTracks.length; i++) {
+      final path = instPaths[i];
+      if (path != null) {
+        instLoadFutures.add(
+          audio.loadTrackFromPath(instTracks[i].id, path, volume: instTracks[i].volume),
+        );
+      }
+    }
+    await Future.wait(instLoadFutures);
+  }
+
+  /// Release tracks that are not currently playing and have been inactive
+  /// the longest. Called when playback stops to free memory.
+  Future<void> releaseInactiveTracks({int keepCount = 8}) async {
+    final audio = ref.read(audioServiceProvider);
+    final loadedIds = audio.cachedTrackIds.toList();
+    if (loadedIds.length <= keepCount) return;
+
+    // Keep the most recently used tracks.
+    final entries = loadedIds.map((id) {
+      final usage = audio.getTrackLastUsed(id);
+      return MapEntry(id, usage);
+    }).toList();
+    entries.sort((a, b) => (a.value ?? DateTime.now()).compareTo(b.value ?? DateTime.now()));
+
+    final toRelease = entries.take(entries.length - keepCount).map((e) => e.key).toList();
+    for (final id in toRelease) {
+      await audio.unloadTrack(id);
+    }
   }
 
   Future<void> toggle({String? editingTrackId}) async {

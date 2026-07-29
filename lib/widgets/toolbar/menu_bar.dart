@@ -44,7 +44,7 @@ class AudioMenuBar extends ConsumerWidget {
                 shortcut: 'shortcut.openProject'.tr(),
                 onTap: () async {
                   final notifier = ref.read(projectProvider.notifier);
-                  await notifier.openProject();
+                  await notifier.openProject(context);
                 },
               ),
               MenuItem(
@@ -52,7 +52,7 @@ class AudioMenuBar extends ConsumerWidget {
                 shortcut: 'shortcut.saveProject'.tr(),
                 onTap: () async {
                   final notifier = ref.read(projectProvider.notifier);
-                  await notifier.saveProject();
+                  await notifier.saveProject(context);
                 },
               ),
               MenuItem.separator(),
@@ -101,13 +101,13 @@ class AudioMenuBar extends ConsumerWidget {
                   if (result != null && context.mounted) {
                     String? audioPath = result.audioSource;
                     if (!isWavFile(audioPath)) {
-                      audioPath = await convertToWav(audioPath);
+                      audioPath = await convertToWav(audioPath, context);
                       if (audioPath == null) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('仅支持 WAV 格式。如需导入其他格式，请先转换为 WAV。'),
-                              duration: const Duration(seconds: 5),
+                            const SnackBar(
+                              content: Text('音频转换失败，请重试'),
+                              duration: Duration(seconds: 3),
                             ),
                           );
                         }

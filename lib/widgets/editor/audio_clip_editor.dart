@@ -27,6 +27,7 @@ import 'frequency_split_dialog.dart';
 import 'audio_clip_toolbar.dart';
 import '../../models/waveform_drop_data.dart';
 import '../../services/waveform_generator.dart';
+import '../../services/wav_encoder.dart';
 
 /// Open the audio clip editor for a given track.
 /// Desktop: full-screen dialog. Mobile: Navigator push.
@@ -222,7 +223,7 @@ class _AudioClipEditorState extends ConsumerState<AudioClipEditor> {
       var samples = await _readWavFile(originalPath);
       var sourceFile = originalPath;
       if (samples == null) {
-        final converted = await convertToWav(originalPath);
+        final converted = await convertToWav(originalPath, context);
         if (converted != null) {
           sourceFile = converted;
           samples = await _readWavFile(sourceFile);
@@ -338,37 +339,8 @@ class _AudioClipEditorState extends ConsumerState<AudioClipEditor> {
   }
 
   Uint8List _encodeWav(Float64List buffer) {
-    final numSamples = buffer.length;
-    final sampleRate = 44100;
-    final bytesPerSample = 2;
-    final dataSize = numSamples * bytesPerSample;
-    final fileSize = 44 + dataSize;
-    final data = List<int>.filled(fileSize, 0);
-    int offset = 0;
-    void w4(int v) {
-      data[offset] = v & 0xFF; data[offset + 1] = (v >> 8) & 0xFF;
-      data[offset + 2] = (v >> 16) & 0xFF; data[offset + 3] = (v >> 24) & 0xFF;
-      offset += 4;
-    }
-    void w2(int v) {
-      data[offset] = v & 0xFF; data[offset + 1] = (v >> 8) & 0xFF;
-      offset += 2;
-    }
-    void ws(String s) {
-      for (int i = 0; i < s.length; i++) {
-        data[offset++] = s.codeUnitAt(i);
-      }
-    }
-    ws('RIFF'); w4(fileSize - 8); ws('WAVE');
-    ws('fmt '); w4(16); w2(1); w2(1); w4(sampleRate);
-    w4(sampleRate * bytesPerSample); w2(bytesPerSample); w2(16);
-    ws('data'); w4(dataSize);
-    for (int i = 0; i < numSamples; i++) {
-      final clamped = buffer[i].clamp(-1.0, 1.0);
-      final sample = (clamped * 32767).round().clamp(-32768, 32767);
-      w2(sample);
-    }
-    return Uint8List.fromList(data);
+    return WavEncoder.encode(buffer, buffer.length, 44100);
+
   }
 
   Future<String?> _trySave() async {

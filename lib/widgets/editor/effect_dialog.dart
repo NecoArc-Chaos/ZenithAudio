@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../core/utils/logger.dart';
+import '../../../services/wav_encoder.dart';
 
 /// Result from an effect dialog: [samples] is null if cancelled.
 class EffectResult {
@@ -91,43 +93,65 @@ class _EffectDialogState extends State<_EffectDialog> {
     if (_previewing) return;
     _previewing = true;
 
-    // Process a 2-second segment roughly centered
-    final sampleCount = (_previewDurationSec * widget.sampleRate).round();
-    final halfClip = widget.clipSamples.length ~/ 2;
-    final halfPreview = sampleCount ~/ 2;
-    final startSample = (halfClip - halfPreview).clamp(0, widget.clipSamples.length - sampleCount);
-    final segment = widget.clipSamples.sublist(startSample, startSample + sampleCount);
-
-    final processed = widget.process(segment, widget.sampleRate, _params);
-
-    // Encode as WAV and play
-    final wav = _encodeWavPreview(processed, widget.sampleRate);
-    final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/effect_preview.wav';
-    await File(path).writeAsBytes(wav);
-
-    await _previewPlayer?.dispose();
-    final player = Player();
-    _previewPlayer = player;
-    player.stream.completed.listen((_) {
-      if (mounted) setState(() => _previewing = false);
-    });
-    player.stream.error.listen((_) {
-      if (mounted) setState(() => _previewing = false);
-    });
-
     try {
-      await player.open(Media(Uri.file(path).toString()));
-      await player.setVolume(80);
-      player.play();
-    } catch (_) {
+      // Process a 2-second segment roughly centered
+      final sampleCount = (_previewDurationSec * widget.sampleRate).round();
+      final halfClip = widget.clipSamples.length ~/ 2;
+      final halfPreview = sampleCount ~/ 2;
+      final startSample = (halfClip - halfPreview).clamp(0, widget.clipSamples.length - sampleCount);
+      final segment = widget.clipSamples.sublist(startSample, startSample + sampleCount);
+
+      final processed = widget.process(segment, widget.sampleRate, _params);
+
+      // Encode as WAV and play
+      final wav = _encodeWavPreview(processed, widget.sampleRate);
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/effect_preview.wav';
+      await File(path).writeAsBytes(wav);
+
+      await _previewPlayer?.dispose();
+      final player = Player();
+      _previewPlayer = player;
+      player.stream.completed.listen((_) {
+        if (mounted) setState(() => _previewing = false);
+      });
+      player.stream.error.listen((_) {
+        if (mounted) setState(() => _previewing = false);
+      });
+
+      try {
+        await player.open(Media(Uri.file(path).toString()));
+        await player.setVolume(80);
+        player.play();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('预览播放失败')),
+          );
+        }
+        if (mounted) setState(() => _previewing = false);
+      }
+    } catch (e) {
+      AppLogger.e('Effect preview failed', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('效果预览失败：处理音频时发生错误')),
+        );
+      }
       if (mounted) setState(() => _previewing = false);
     }
   }
 
   void _apply() {
-    final result = widget.process(widget.clipSamples, widget.sampleRate, _params);
-    Navigator.of(context).pop(EffectResult(result));
+    try {
+      final result = widget.process(widget.clipSamples, widget.sampleRate, _params);
+      Navigator.of(context).pop(EffectResult(result));
+    } catch (e) {
+      AppLogger.e('Effect apply failed', e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('应用效果失败：处理音频时发生错误')),
+      );
+    }
   }
 
   void _cancel() {
@@ -227,35 +251,8 @@ class _EffectDialogState extends State<_EffectDialog> {
   }
 
   Uint8List _encodeWavPreview(Float64List buffer, int sampleRate) {
-    final bytesPerSample = 2;
-    final dataSize = buffer.length * bytesPerSample;
-    final fileSize = 44 + dataSize;
-    final data = List<int>.filled(fileSize, 0);
-    int offset = 0;
-    void w4(int v) {
-      data[offset] = v & 0xFF; data[offset + 1] = (v >> 8) & 0xFF;
-      data[offset + 2] = (v >> 16) & 0xFF; data[offset + 3] = (v >> 24) & 0xFF;
-      offset += 4;
-    }
-    void w2(int v) {
-      data[offset] = v & 0xFF; data[offset + 1] = (v >> 8) & 0xFF;
-      offset += 2;
-    }
-    void ws(String s) {
-      for (int i = 0; i < s.length; i++) {
-        data[offset++] = s.codeUnitAt(i);
-      }
-    }
-    ws('RIFF'); w4(fileSize - 8); ws('WAVE');
-    ws('fmt '); w4(16); w2(1); w2(1); w4(sampleRate);
-    w4(sampleRate * bytesPerSample); w2(bytesPerSample); w2(16);
-    ws('data'); w4(dataSize);
-    for (int i = 0; i < buffer.length; i++) {
-      final clamped = buffer[i].clamp(-1.0, 1.0);
-      final sample = (clamped * 32767).round().clamp(-32768, 32767);
-      w2(sample);
-    }
-    return Uint8List.fromList(data);
+    return WavEncoder.encode(buffer, buffer.length, sampleRate);
+
   }
 }
 
