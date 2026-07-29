@@ -79,11 +79,12 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
       - name: Inspect build output
+        shell: pwsh
         run: |
-          echo "=== build/windows ==="
-          dir build\windows /s /b 2>nul || echo "No build/windows directory"
-          echo "=== x64 ==="
-          dir build\windows\x64 /s /b 2>nul || echo "No build/windows/x64 directory"
+          Write-Host "=== build/windows ==="
+          if (Test-Path build/windows) { Get-ChildItem build/windows -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows directory" }
+          Write-Host "=== x64 ==="
+          if (Test-Path build/windows/x64) { Get-ChildItem build/windows/x64 -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows/x64 directory" }
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
