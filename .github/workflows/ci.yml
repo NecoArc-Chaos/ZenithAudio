@@ -1,3 +1,5 @@
+# CI pipeline with artifact uploads
+
 name: CI
 
 on:
