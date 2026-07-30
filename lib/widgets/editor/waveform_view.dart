@@ -52,33 +52,60 @@ class _WaveformPainter extends CustomPainter {
     this.pixelsPerSecond = 50,
   });
 
-  static final Map<String, Path> _pathCache = {};
-  static const int _maxCacheSize = 32;
-
   @override
   void paint(Canvas canvas, Size size) {
-    if (hasFile) {
-      final cacheKey = '${color.value}_${size.width.toInt()}_${pixelsPerSecond.toInt()}';
-      Path? cachedPath = _pathCache[cacheKey];
-      if (cachedPath == null) {
-        cachedPath = _buildWaveformPath(size);
-        if (_pathCache.length >= _maxCacheSize) {
-          _pathCache.clear();
-        }
-        _pathCache[cacheKey] = cachedPath;
-      }
+    final step = pixelsPerSecond > 200
+        ? 0.25
+        : pixelsPerSecond > 100
+            ? 0.5
+            : pixelsPerSecond > 50
+                ? 1.0
+                : 2.0;
 
-      final fillPaint = Paint()..color = color.withAlpha(20);
+    if (hasFile) {
       final paint = Paint()
         ..color = color.withAlpha(77)
         ..strokeWidth = 1.5;
 
-      canvas.drawPath(cachedPath, fillPaint);
-      canvas.drawPath(cachedPath, paint);
+      final fillPaint = Paint()
+        ..color = color.withAlpha(20);
+
+      final path = Path();
+      final centerY = size.height / 2;
+      final random = Random(42);
+
+      path.moveTo(0, centerY);
+      for (double x = 0; x < size.width; x += step) {
+        final amplitude = _getAmplitude(x, size.width, random);
+        path.lineTo(x, centerY - amplitude);
+      }
+      for (double x = size.width - (size.width % step.toInt().clamp(1, 2));
+          x >= 0;
+          x -= step) {
+        final amplitude = _getAmplitude(x, size.width, random);
+        path.lineTo(x, centerY + amplitude);
+      }
+      path.close();
+      canvas.drawPath(path, fillPaint);
+
+      final outlinePath = Path();
+      outlinePath.moveTo(0, centerY);
+      for (double x = 0; x < size.width; x += step) {
+        final amplitude = _getAmplitude(x, size.width, random);
+        outlinePath.lineTo(x, centerY - amplitude);
+      }
+      for (double x = size.width - (size.width % step.toInt().clamp(1, 2));
+          x >= 0;
+          x -= step) {
+        final amplitude = _getAmplitude(x, size.width, random);
+        outlinePath.lineTo(x, centerY + amplitude);
+      }
+      outlinePath.close();
+      canvas.drawPath(outlinePath, paint);
 
       canvas.drawLine(
-        Offset(0, size.height / 2),
-        Offset(size.width, size.height / 2),
+        Offset(0, centerY),
+        Offset(size.width, centerY),
         Paint()..color = color.withAlpha(38)..strokeWidth = 0.5,
       );
     } else {
@@ -107,33 +134,6 @@ class _WaveformPainter extends CustomPainter {
     }
   }
 
-  Path _buildWaveformPath(Size size) {
-    final step = pixelsPerSecond > 200
-        ? 0.25
-        : pixelsPerSecond > 100
-            ? 0.5
-            : pixelsPerSecond > 50
-                ? 1.0
-                : 2.0;
-    final path = Path();
-    final centerY = size.height / 2;
-    final random = Random(42);
-
-    path.moveTo(0, centerY);
-    for (double x = 0; x < size.width; x += step) {
-      final amplitude = _getAmplitude(x, size.width, random);
-      path.lineTo(x, centerY - amplitude);
-    }
-    for (double x = size.width - (size.width % step.toInt().clamp(1, 2));
-        x >= 0;
-        x -= step) {
-      final amplitude = _getAmplitude(x, size.width, random);
-      path.lineTo(x, centerY + amplitude);
-    }
-    path.close();
-    return path;
-  }
-
   double _getAmplitude(double x, double width, Random random) {
     final envelope = sin((x / width) * pi);
     final harmonics = sin(x * 0.05) * 0.5 +
@@ -144,13 +144,9 @@ class _WaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
-    if (oldDelegate.hasFile != hasFile ||
+    return oldDelegate.hasFile != hasFile ||
         oldDelegate.color != color ||
         oldDelegate.emptyColor != emptyColor ||
-        oldDelegate.pixelsPerSecond != pixelsPerSecond) {
-      return true;
-    }
-    // If width might have changed, invalidate cache entry by size.
-    return false;
+        oldDelegate.pixelsPerSecond != pixelsPerSecond;
   }
 }

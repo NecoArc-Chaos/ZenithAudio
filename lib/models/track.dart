@@ -4,11 +4,6 @@ import 'note.dart';
 
 enum TrackType { audio, instrument }
 
-extension TrackTypeX on TrackType {
-  bool get isAudio => this == TrackType.audio;
-  bool get isInstrument => this == TrackType.instrument;
-}
-
 class Track {
   final String id;
   final String name;
@@ -41,7 +36,7 @@ class Track {
   });
 
   double get computedDuration {
-    if (type.isInstrument && notes.isNotEmpty) {
+    if (type == TrackType.instrument && notes.isNotEmpty) {
       final last = notes.last;
       return last.startTime + last.duration;
     }

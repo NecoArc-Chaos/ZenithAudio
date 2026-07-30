@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import '../core/constants/app_constants.dart';
 import '../models/track.dart';
 import '../models/instrument.dart';
 import '../core/utils/logger.dart';
@@ -46,38 +45,33 @@ class _TrackPlayer {
 class _WavCache {
   final String path;
   final int noteHash;
-  final DateTime lastUsed;
-  _WavCache(this.path, this.noteHash, this.lastUsed);
+  _WavCache(this.path, this.noteHash);
 }
 
 class AudioService {
   final Map<String, _TrackPlayer> _players = {};
   final Map<String, _WavCache> _wavCache = {};
-  static const int _maxWavCache = 8;
+  bool _isPlaying = false;
   double _masterVolume = 1.0;
   double _playbackSpeed = 1.0;
   int _completedTracks = 0;
   int _totalTracks = 0;
 
-  /// Track state for solo/mute logic. These are keyed by trackId and
-  /// applied uniformly via [_applyEffectiveVolumes].
-  final Map<String, bool> _trackMutes = {};
-  final Map<String, bool> _trackSolos = {};
-  final Map<String, DateTime> _trackUsage = {};
-  static const int _maxLoadedTracks = 16;
-
   void Function(double position)? onPositionChanged;
   void Function()? onCompleted;
 
+  bool get isPlaying => _isPlaying;
   double get masterVolume => _masterVolume;
 
   set masterVolume(double v) {
     _masterVolume = v.clamp(0.0, 1.0);
-    _applyEffectiveVolumes();
+    for (final tp in _players.values) {
+      tp.player.setVolume((tp.trackVolume * _masterVolume * 100).roundToDouble());
+    }
   }
 
   DateTime _lastPositionUpdate = DateTime.now();
-  static const Duration _positionThrottle = Duration(milliseconds: AppConstants.positionUpdateThrottleMs);
+  static const Duration _positionThrottle = Duration(milliseconds: 33);
 
   Future<double> loadTrack(Track track) async {
     if (track.audioFilePath == null) return 0;
@@ -94,14 +88,13 @@ class AudioService {
 
       _players[track.id] = tp;
       tp.trackVolume = track.volume;
-      _trackMutes[track.id] = track.isMuted;
-      _trackSolos[track.id] = track.isSolo;
 
       tp.completedSub = player.stream.completed.listen((completed) {
         if (tp._disposed) return;
         if (completed) {
           _completedTracks++;
           if (_completedTracks >= _totalTracks) {
+            _isPlaying = false;
             onCompleted?.call();
           }
         }
@@ -132,7 +125,6 @@ class AudioService {
       AppLogger.d('loadTrack: ${dur.toStringAsFixed(2)}s');
       return dur;
     } catch (e) {
-      AppLogger.e('Failed to load track ${track.id}: ${track.audioFilePath}', e);
       tp.dispose();
       _players.remove(track.id);
       return 0;
@@ -150,7 +142,6 @@ class AudioService {
     final noteHash = Object.hash(track.instrumentName, Object.hashAll(track.notes));
     final cached = _wavCache[track.id];
     if (cached != null && cached.noteHash == noteHash) {
-      _wavCache[track.id] = _WavCache(cached.path, cached.noteHash, DateTime.now());
       return cached.path;
     }
     // Clean up old cached WAV for this track if notes changed.
@@ -163,9 +154,7 @@ class AudioService {
       } catch (_) {}
     }
 
-    _evictOldestWavIfNeeded();
-
-    final maxDur = AppConstants.maxInstrumentRenderSeconds.toDouble();
+    const maxDur = 120.0;
     final dur = track.computedDuration > 0
         ? (track.computedDuration + 0.5).clamp(0, maxDur)
         : 2.0;
@@ -203,31 +192,8 @@ class AudioService {
     final filePath = '${dir.path}/synth_${track.id}.wav';
     await File(filePath).writeAsBytes(wav);
 
-    _wavCache[track.id] = _WavCache(filePath, noteHash, DateTime.now());
+    _wavCache[track.id] = _WavCache(filePath, noteHash);
     return filePath;
-  }
-
-  void _enforceLoadedTrackLimit() {
-    if (_players.length < _maxLoadedTracks) return;
-    final sorted = _trackUsage.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    final toEvict = sorted.take(_players.length - _maxLoadedTracks + 1);
-    for (final entry in toEvict) {
-      unloadTrack(entry.key);
-    }
-  }
-
-  void _evictOldestWavIfNeeded() {
-    if (_wavCache.length < _maxWavCache) return;
-    final oldest = _wavCache.entries.reduce((a, b) =>
-        a.value.lastUsed.isBefore(b.value.lastUsed) ? a : b);
-    final removed = _wavCache.remove(oldest.key);
-    if (removed != null) {
-      try {
-        final f = File(removed.path);
-        if (f.existsSync()) f.deleteSync();
-      } catch (_) {}
-    }
   }
 
   /// Prepare all given tracks (generate WAVs for instrument tracks if needed).
@@ -275,79 +241,31 @@ class AudioService {
         await player.setRate(_playbackSpeed);
         _players[track.id] = tp;
         tp.trackVolume = track.volume;
-        _trackMutes[track.id] = track.isMuted;
-        _trackSolos[track.id] = track.isSolo;
       } catch (e) {
-        AppLogger.e('Failed to load track ${track.id} in loadTracks', e);
         tp.dispose();
       }
     }
   }
 
-  /// Create a [TrackPlayer] for the given path without blocking on open.
-  /// The returned future completes when the player is ready to play.
-  Future<_TrackPlayer?> prepareTrack(String trackId, String path) async {
-    _enforceLoadedTrackLimit();
-    final player = Player();
-    final tp = _TrackPlayer(player);
-    try {
-      await player.open(Media(Uri.file(path).toString()), play: false);
-      _players[trackId] = tp;
-      tp.trackVolume = 1.0;
-      _trackMutes[trackId] = false;
-      _trackSolos[trackId] = false;
-      _trackUsage[trackId] = DateTime.now();
-
-      tp.completedSub = player.stream.completed.listen((completed) {
-        if (tp._disposed) return;
-        if (completed) {
-          _completedTracks++;
-          if (_completedTracks >= _totalTracks) {
-            onCompleted?.call();
-          }
-        }
-      });
-
-      tp.positionSub = player.stream.position.listen((position) {
-        if (tp._disposed) return;
-        final now = DateTime.now();
-        if (now.difference(_lastPositionUpdate) < _positionThrottle) return;
-        _lastPositionUpdate = now;
-        onPositionChanged?.call(position.inMilliseconds / 1000.0);
-      });
-
-      _totalTracks++;
-      return tp;
-    } catch (e) {
-      AppLogger.e('Failed to prepare track $trackId: $path', e);
-      tp.dispose();
-      _players.remove(trackId);
-      return null;
-    }
-  }
-
-  /// Load a single track from a file path with given raw volume.
+  /// Load a single track from a file path with given volume/mute.
   Future<void> loadTrackFromPath(String trackId, String path,
-      {double volume = 1.0}) async {
+      {double volume = 1.0, bool muted = false}) async {
     await unloadTrack(trackId);
-    _enforceLoadedTrackLimit();
     final player = Player();
     final tp = _TrackPlayer(player);
     try {
       await player.open(Media(Uri.file(path).toString()), play: false);
-      await player.setVolume((volume * _masterVolume * 100).roundToDouble());
+      await player.setVolume(muted ? 0 : (volume * _masterVolume * 100).roundToDouble());
       await player.setRate(_playbackSpeed);
       _players[trackId] = tp;
       tp.trackVolume = volume;
-      _trackMutes[trackId] = false;
-      _trackSolos[trackId] = false;
-      _trackUsage[trackId] = DateTime.now();
 
       tp.completedSub = player.stream.completed.listen((completed) {
         if (tp._disposed) return;
         if (completed) {
           _completedTracks++;
           if (_completedTracks >= _totalTracks) {
+            _isPlaying = false;
             onCompleted?.call();
           }
         }
@@ -362,18 +280,12 @@ class AudioService {
       });
       _totalTracks++;
     } catch (e) {
-      AppLogger.e('Failed to load track from path $path', e);
       tp.dispose();
     }
   }
 
   /// Returns the cached WAV path for a track, or null if not cached.
-  Set<String> get cachedTrackIds => Set.from(_wavCache.keys);
   String? getCachedTrackPath(String trackId) => _wavCache[trackId]?.path;
-
-  bool isTrackLoaded(String trackId) => _players.containsKey(trackId);
-
-  DateTime? getTrackLastUsed(String trackId) => _trackUsage[trackId];
 
   /// Check if track WAV is cached with current notes.
   bool isTrackCached(Track track) {
@@ -382,6 +294,21 @@ class AudioService {
     if (cached == null) return false;
     final noteHash = Object.hash(track.instrumentName, Object.hashAll(track.notes));
     return cached.noteHash == noteHash;
+  }
+
+  void updateTrackVolume(String trackId, double volume) {
+    final tp = _players[trackId];
+    if (tp != null) {
+      tp.trackVolume = volume;
+      tp.player.setVolume((volume * _masterVolume * 100).roundToDouble());
+    }
+  }
+
+  void setMute(String trackId, bool muted) {
+    final tp = _players[trackId];
+    if (tp != null) {
+      tp.player.setVolume(muted ? 0 : (tp.trackVolume * _masterVolume * 100).roundToDouble());
+    }
   }
 
   void setPlaybackSpeed(double speed) {
@@ -393,58 +320,19 @@ class AudioService {
 
   void updateMasterVolume(double volume) {
     _masterVolume = volume.clamp(0.0, 1.0);
-    _applyEffectiveVolumes();
-  }
-
-  void updateTrackVolume(String trackId, double volume) {
-    final tp = _players[trackId];
-    if (tp != null) {
-      tp.trackVolume = volume;
-    }
-    _applyEffectiveVolumes();
-  }
-
-  void setTrackMute(String trackId, bool muted) {
-    _trackMutes[trackId] = muted;
-    _applyEffectiveVolumes();
-  }
-
-  void setTrackSolo(String trackId, bool solo) {
-    _trackSolos[trackId] = solo;
-    _applyEffectiveVolumes();
-  }
-
-  void _applyEffectiveVolumes() {
-    final hasSolo = _trackSolos.values.any((s) => s);
-    for (final entry in _players.entries) {
-      final trackId = entry.key;
-      final tp = entry.value;
-      if (tp._disposed) continue;
-
-      final rawVol = tp.trackVolume;
-      final isMuted = _trackMutes[trackId] ?? false;
-      final isSolo = _trackSolos[trackId] ?? false;
-
-      double effectiveVol;
-      if (hasSolo) {
-        effectiveVol = isSolo ? rawVol : 0.0;
-      } else {
-        effectiveVol = isMuted ? 0.0 : rawVol;
-      }
-
-      tp.player.setVolume((effectiveVol * _masterVolume * 100).roundToDouble());
+    for (final tp in _players.values) {
+      tp.player.setVolume((tp.trackVolume * _masterVolume * 100).roundToDouble());
     }
   }
 
   Future<void> play() async {
     if (_players.isEmpty) return;
+    _isPlaying = true;
     _completedTracks = 0;
     _totalTracks = _players.length;
-    _applyEffectiveVolumes();
-    await Future.wait(_players.values.map((tp) {
-      if (tp._disposed) return Future.value();
-      return tp.player.play();
-    }));
+    for (final tp in _players.values) {
+      if (!tp._disposed) tp.player.play();
+    }
   }
 
   /// Play a single track without affecting other tracks' state.
@@ -465,12 +353,14 @@ class AudioService {
   }
 
   Future<void> pause() async {
+    _isPlaying = false;
     for (final tp in _players.values) {
       if (!tp._disposed) tp.player.pause();
     }
   }
 
   Future<void> stop() async {
+    _isPlaying = false;
     for (final tp in _players.values) {
       if (!tp._disposed) tp.player.stop();
     }
@@ -478,27 +368,14 @@ class AudioService {
 
   Future<void> seekTo(double seconds) async {
     final duration = Duration(milliseconds: (seconds * 1000).round());
-    await Future.wait(_players.values.map((tp) {
-      if (tp._disposed) return Future.value();
-      return tp.player.seek(duration);
-    }));
+    for (final tp in _players.values) {
+      if (!tp._disposed) tp.player.seek(duration);
+    }
   }
 
   Future<void> unloadTrack(String trackId) async {
     final tp = _players.remove(trackId);
     tp?.dispose();
-    _trackMutes.remove(trackId);
-    _trackSolos.remove(trackId);
-    _trackUsage.remove(trackId);
-
-    // Clean up synthesized WAV temp file if present
-    final cached = _wavCache.remove(trackId);
-    if (cached != null) {
-      try {
-        final f = File(cached.path);
-        if (await f.exists()) await f.delete();
-      } catch (_) {}
-    }
   }
 
   Future<void> unloadAll() async {
@@ -506,27 +383,31 @@ class AudioService {
       tp.dispose();
     }
     _players.clear();
-    _trackMutes.clear();
-    _trackSolos.clear();
+    _isPlaying = false;
     _completedTracks = 0;
     _totalTracks = 0;
-
-    // Clean up all synthesized WAV temp files
-    for (final cached in _wavCache.values) {
-      try {
-        final f = File(cached.path);
-        if (await f.exists()) await f.delete();
-      } catch (_) {}
-    }
-    _wavCache.clear();
   }
 
   Future<void> dispose() async {
     await unloadAll();
+    // Clean up cached WAV files.
+    for (final entry in _wavCache.values) {
+      try {
+        final file = File(entry.path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
+    _wavCache.clear();
   }
 }
 
 // ── Top-level WAV synthesis (usable with Flutter.compute) ──
+
+Uint8List _encodeWav(Float64List buffer, int numSamples, int sampleRate) {
+  return WavEncoder.encode(buffer, numSamples, sampleRate);
+}
 
 /// Top-level synth + encode function for use with [compute].
 /// [params] must contain 'notes', 'instrumentName', 'duration', 'sampleRate'.
@@ -570,5 +451,7 @@ Uint8List _synthAndEncodeWav(Map<String, dynamic> params) {
     }
   }
 
-  return WavEncoder.encode(buffer, numSamples, sampleRate);
+  return _encodeWav(buffer, numSamples, sampleRate);
 }
+
+

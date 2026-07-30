@@ -11,8 +11,6 @@ final recordingProvider =
 
 final recordingElapsedProvider = StateProvider<double>((ref) => 0);
 
-final recordingErrorProvider = StateProvider<String?>((ref) => null);
-
 class RecordingNotifier extends Notifier<RecordingState> {
   AudioRecorder? _recorder;
   String? _outputPath;
@@ -36,10 +34,8 @@ class RecordingNotifier extends Notifier<RecordingState> {
     if (!hasPermission) {
       AppLogger.w('麦克风权限被拒绝');
       state = RecordingState.permissionDenied;
-      ref.read(recordingErrorProvider.notifier).state = 'permission_denied';
       return false;
     }
-    ref.read(recordingErrorProvider.notifier).state = null;
     return true;
   }
 
@@ -49,38 +45,30 @@ class RecordingNotifier extends Notifier<RecordingState> {
     final hasPerm = await requestPermission();
     if (!hasPerm) return null;
 
-    try {
-      _recorder = AudioRecorder();
-      final dir = await PlatformDir.getDocumentsPath('ZenithAudio');
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _outputPath = '$dir/recording_$timestamp.wav';
+    _recorder = AudioRecorder();
+    final dir = await PlatformDir.getDocumentsPath('ZenithAudio');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    _outputPath = '$dir/recording_$timestamp.wav';
 
-      await _recorder!.start(
-        RecordConfig(encoder: AudioEncoder.wav),
-        path: _outputPath!,
-      );
+    await _recorder!.start(
+      RecordConfig(encoder: AudioEncoder.wav),
+      path: _outputPath!,
+    );
 
-      _startTime = DateTime.now();
-      state = RecordingState.recording;
-      ref.read(recordingElapsedProvider.notifier).state = 0;
-      ref.read(recordingErrorProvider.notifier).state = null;
+    _startTime = DateTime.now();
+    state = RecordingState.recording;
+    ref.read(recordingElapsedProvider.notifier).state = 0;
 
-      _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-        if (_startTime != null) {
-          final elapsed =
-              DateTime.now().difference(_startTime!).inMilliseconds / 1000.0;
-          ref.read(recordingElapsedProvider.notifier).state = elapsed;
-        }
-      });
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (_startTime != null) {
+        final elapsed =
+            DateTime.now().difference(_startTime!).inMilliseconds / 1000.0;
+        ref.read(recordingElapsedProvider.notifier).state = elapsed;
+      }
+    });
 
-      AppLogger.i('录音开始: $_outputPath');
-      return _outputPath;
-    } catch (e) {
-      AppLogger.e('Failed to start recording', e);
-      ref.read(recordingErrorProvider.notifier).state = 'start_failed';
-      await _cleanup();
-      return null;
-    }
+    AppLogger.i('录音开始: $_outputPath');
+    return _outputPath;
   }
 
   Future<String?> stopRecording() async {
@@ -89,31 +77,15 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _timer?.cancel();
     _timer = null;
 
-    try {
-      final path = await _recorder!.stop();
-      _recorder?.dispose();
-      _recorder = null;
-      _startTime = null;
-
-      ref.read(recordingElapsedProvider.notifier).state = 0;
-      state = RecordingState.idle;
-
-      AppLogger.i('录音结束: $path');
-      return path ?? _outputPath;
-    } catch (e) {
-      AppLogger.e('Failed to stop recording', e);
-      await _cleanup();
-      return null;
-    }
-  }
-
-  Future<void> _cleanup() async {
-    _timer?.cancel();
-    _timer = null;
+    final path = await _recorder!.stop();
     _recorder?.dispose();
     _recorder = null;
     _startTime = null;
+
     ref.read(recordingElapsedProvider.notifier).state = 0;
     state = RecordingState.idle;
+
+    AppLogger.i('录音结束: $path');
+    return path ?? _outputPath;
   }
 }

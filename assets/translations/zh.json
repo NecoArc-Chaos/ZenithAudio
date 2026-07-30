@@ -62,17 +62,14 @@
   "transport.pause": "暂停",
   "transport.stop": "停止",
   "transport.record": "录制",
-  "transport.recordPermissionDenied": "麦克风权限被拒绝",
   "transport.stopRec": "停止录制",
   "transport.skipStart": "跳到开头",
   "transport.skipEnd": "跳到末尾",
 
   "editor.emptyTitle": "导入音频文件开始编辑",
   "editor.emptySubtitle": "支持 WAV, MP3, FLAC, AAC, OGG, M4A",
-  "browser.importAudio": "导入音频...",
 
   "settings.title": "设置",
-  "settings": "设置",
   "settings.general": "通用",
   "settings.theme": "主题",
   "settings.theme.system": "跟随系统",
@@ -145,8 +142,4 @@
   "shortcut.addTrack": "Ctrl+T",
   "shortcut.importAudio": "Ctrl+I",
   "shortcut.importMidi": "Ctrl+Shift+I"
-  "browser.importAudio": "导入音频...",
-  "browser.imported": "已导入：${name}",
-  "browser.addedInstrument": "已添加乐器：${name}",
-  "browser.noResults": "无结果"
 }

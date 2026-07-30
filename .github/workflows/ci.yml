@@ -89,7 +89,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: build/windows/x64/runner/Release/**
+          path: build/windows/x64/release/**
           retention-days: 14
 
   build-macos:
@@ -152,3 +152,4 @@ jobs:
           name: ios-build
           path: build/ios/iphoneos/Runner.app
           retention-days: 14
+        if: success()

@@ -46,8 +46,3 @@ app.*.map.json
 
 temp/
 .owoTimeMachine/
-
-# Android signing
-key.properties
-*.jks
-*.keystore

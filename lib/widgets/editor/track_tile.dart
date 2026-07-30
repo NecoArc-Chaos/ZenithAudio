@@ -67,7 +67,7 @@ class TrackTile extends ConsumerWidget {
               _PanKnob(track: track, ref: ref),
             ],
             _ControlButtons(track: track, ref: ref),
-            if (track.type.isInstrument && !isMobile)
+            if (track.type == TrackType.instrument && !isMobile)
               Flexible(
                 child: ClipRect(
                   child: SingleChildScrollView(
@@ -90,7 +90,7 @@ class TrackTile extends ConsumerWidget {
   }
 
   void _openEditor(BuildContext context, WidgetRef ref) {
-    if (track.type.isInstrument) {
+    if (track.type == TrackType.instrument) {
       final settings = ref.read(settingsProvider);
       if (settings.editorMode == 'float') {
         ref.read(floatingWindowProvider.notifier).open(
@@ -126,7 +126,7 @@ class TrackTile extends ConsumerWidget {
       const PopupMenuItem(value: 'rename', child: Text('重命名')),
       const PopupMenuItem(value: 'properties', child: Text('属性')),
     ];
-    if (track.type.isInstrument) {
+    if (track.type == TrackType.instrument) {
       items.add(const PopupMenuItem(value: 'editPianoRoll', child: Text('编辑钢琴卷帘')));
       items.add(const PopupMenuItem(value: 'changeInstrument', child: Text('更换乐器')));
     } else if (track.type == TrackType.audio) {
@@ -224,7 +224,7 @@ class TrackTile extends ConsumerWidget {
           children: [
             Text('名称: ${track.name}'),
             const SizedBox(height: 8),
-            Text('类型: ${track.type.isInstrument ? "乐器" : "音频"}'),
+            Text('类型: ${track.type == TrackType.instrument ? "乐器" : "音频"}'),
             if (track.type == TrackType.instrument && track.instrumentName != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
