@@ -28,6 +28,14 @@ configurations.all {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.20")
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
