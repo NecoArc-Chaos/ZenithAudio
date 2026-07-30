@@ -1,5 +1,5 @@
 plugins {
-    kotlin("android") version "1.9.0" apply false
+    kotlin("android") version "2.3.20" apply false
 }
 
 allprojects {
@@ -20,20 +20,11 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
-subprojects {
-    afterEvaluate { project ->
-        if (project.plugins.hasPlugin("com.android.application") ||
-            project.plugins.hasPlugin("com.android.library")) {
-            project.extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
-                compileOptions {
-                    sourceCompatibility = JavaVersion.VERSION_17
-                    targetCompatibility = JavaVersion.VERSION_17
-                }
-                project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java)?.apply {
-                    jvmTarget = "17"
-                }
-            }
-        }
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.20")
     }
 }
 
