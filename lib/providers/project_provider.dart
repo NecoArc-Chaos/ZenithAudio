@@ -20,9 +20,16 @@ final projectProvider = NotifierProvider<ProjectNotifier, Project>(
   ProjectNotifier.new,
 );
 
+class _UndoState {
+  final Project project;
+  final String? filePath;
+  final bool isDirty;
+  const _UndoState(this.project, this.filePath, this.isDirty);
+}
+
 class ProjectNotifier extends Notifier<Project> {
   static const _uuid = Uuid();
-  static const int _maxUndo = 50;
+  static const int _maxUndo = AppConstants.maxUndoSteps;
 
   /// Current save path for the project (set after first save or open).
   String? _currentFilePath;
@@ -30,11 +37,14 @@ class ProjectNotifier extends Notifier<Project> {
   /// Tracks whether there are unsaved changes.
   bool _isDirty = false;
 
-  final List<Project> _undoStack = [];
-  final List<Project> _redoStack = [];
+  final List<_UndoState> _undoStack = [];
+  final List<_UndoState> _redoStack = [];
 
   /// Auto-save timer.
   Timer? _autoSaveTimer;
+
+  /// Guards async track-loading callbacks from stale project loads.
+  String? _loadingProjectId;
 
   bool get isDirty => _isDirty;
 
@@ -54,8 +64,8 @@ class ProjectNotifier extends Notifier<Project> {
       ),
     );
     if (result == 'save') {
-      await saveProject();
-      return true;
+      final ok = await saveProject(context);
+      return ok;
     }
     return result == 'discard';
   }
@@ -67,7 +77,7 @@ class ProjectNotifier extends Notifier<Project> {
       _autoSaveTimer?.cancel();
     });
     // Restart auto-save whenever settings change.
-    ref.listen<SettingsState>(settingsProvider, (_, _) => startAutoSave());
+    ref.listen<SettingsState>(settingsProvider, (__, ___) => startAutoSave());
     // Start once on first build.
     WidgetsBinding.instance.addPostFrameCallback((_) => startAutoSave());
     return Project(id: _uuid.v4(), name: 'untitled');
@@ -94,23 +104,41 @@ class ProjectNotifier extends Notifier<Project> {
   }
 
   void _pushUndo() {
-    _undoStack.add(_deepClone(state));
+    _undoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
     if (_undoStack.length > _maxUndo) _undoStack.removeAt(0);
     _redoStack.clear();
   }
 
   void undo() {
     if (_undoStack.isEmpty) return;
-    _redoStack.add(_deepClone(state));
-    state = _undoStack.removeLast();
+    _redoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
+    final prev = _undoStack.removeLast();
+    state = prev.project;
+    _currentFilePath = prev.filePath;
+    _isDirty = prev.isDirty;
+    _cleanupWavCache();
     AppLogger.i('Undo');
   }
 
   void redo() {
     if (_redoStack.isEmpty) return;
-    _undoStack.add(_deepClone(state));
-    state = _redoStack.removeLast();
+    _undoStack.add(_UndoState(_deepClone(state), _currentFilePath, _isDirty));
+    final next = _redoStack.removeLast();
+    state = next.project;
+    _currentFilePath = next.filePath;
+    _isDirty = next.isDirty;
+    _cleanupWavCache();
     AppLogger.i('Redo');
+  }
+
+  void _cleanupWavCache() {
+    final activeIds = state.tracks.map((t) => t.id).toSet();
+    final audio = ref.read(audioServiceProvider);
+    for (final id in List.from(audio.cachedTrackIds)) {
+      if (!activeIds.contains(id)) {
+        audio.unloadTrack(id);
+      }
+    }
   }
 
   void _markDirty() => _isDirty = true;
@@ -186,13 +214,22 @@ class ProjectNotifier extends Notifier<Project> {
       if (recover == true && files.isNotEmpty && context.mounted) {
         // Open the most recent auto-save
         final newest = files.reduce((a, b) =>
-          File(a.path).statSync().modified.isAfter(File(b.path).statSync().modified) ? a : b);
-        final bytes = await File(newest.path).readAsBytes();
-        final serializer = ProjectSerializer();
-        final serialized = await serializer.deserialize(bytes);
-        if (serialized != null && context.mounted) {
-          final notifier = ref.read(projectProvider.notifier);
-          await notifier._loadSerialized(serialized);
+            File(a.path).statSync().modified.isAfter(File(b.path).statSync().modified) ? a : b);
+        try {
+          final bytes = await File(newest.path).readAsBytes();
+          final serializer = ProjectSerializer();
+          final serialized = await serializer.deserialize(bytes);
+          if (serialized != null && context.mounted) {
+            final notifier = ref.read(projectProvider.notifier);
+            await notifier._loadSerialized(serialized);
+          }
+        } catch (e) {
+          AppLogger.e('Failed to recover auto-save', e);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('恢复自动保存失败：文件可能已损坏')),
+            );
+          }
         }
       }
     } catch (_) {}
@@ -207,11 +244,18 @@ class ProjectNotifier extends Notifier<Project> {
       }
       return t;
     }).toList();
+    final oldProjectId = state.id;
+    final newId = serialized.project.id;
+    _loadingProjectId = newId;
     state = serialized.project.copyWith(tracks: updatedTracks);
-    _isDirty = true;
+    if (oldProjectId.isNotEmpty) {
+      await clearAutoSaveCacheFor(oldProjectId);
+    }
+    _markDirty();
     for (final track in state.tracks) {
       if (track.type == TrackType.audio && track.audioFilePath != null) {
         ref.read(audioServiceProvider).loadTrack(track).then((dur) {
+          if (_loadingProjectId != newId) return;
           final updated = track.copyWith(duration: dur);
           state = state.copyWith(
             tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
@@ -221,7 +265,7 @@ class ProjectNotifier extends Notifier<Project> {
     }
   }
 
-  /// Clear auto-save cache after manual save.
+  /// Clear auto-save cache for the current project.
   Future<void> clearAutoSaveCache() async {
     if (kIsWeb) return;
     try {
@@ -232,9 +276,20 @@ class ProjectNotifier extends Notifier<Project> {
     } catch (_) {}
   }
 
+  /// Clear auto-save cache for a specific project ID.
+  Future<void> clearAutoSaveCacheFor(String projectId) async {
+    if (projectId.isEmpty) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final path = '${dir.path}/.autosave/$projectId.zap';
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+  }
+
   // ──── Save / Open ────
 
-  Future<void> saveProject() async {
+  Future<bool> saveProject([BuildContext? context]) async {
     try {
       AppLogger.i('Saving project...');
 
@@ -247,7 +302,7 @@ class ProjectNotifier extends Notifier<Project> {
         final webSerializer = ProjectSerializer();
         webSerializer.downloadArchive(bytes, '${state.name}${AppConstants.projectExtension}');
         AppLogger.i('Project saved via browser download');
-        return;
+        return true;
       }
 
       // Resolve output path
@@ -275,11 +330,16 @@ class ProjectNotifier extends Notifier<Project> {
           }
         } catch (e) {
           AppLogger.e('File picker error', e);
-          return;
+          if (context != null && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('保存失败：无法选择文件位置')),
+            );
+          }
+          return false;
         }
       }
 
-      if (outputPath == null) return; // User cancelled
+      if (outputPath == null) return false; // User cancelled
 
       if (Platform.isIOS) {
         // On iOS with bytes param, file is already written by the picker.
@@ -304,12 +364,23 @@ class ProjectNotifier extends Notifier<Project> {
       _isDirty = false;
       clearAutoSaveCache();
       AppLogger.i('Project saved to: $outputPath');
+      return true;
     } catch (e) {
       AppLogger.e('Failed to save project', e);
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存失败：写入文件时发生错误')),
+        );
+      }
+      return false;
     }
   }
 
-  Future<void> openProject() async {
+  Future<void> openProject(BuildContext context) async {
+    if (_isDirty) {
+      final ok = await confirmDiscard(context);
+      if (!ok) return;
+    }
     _pushUndo();
     _isDirty = false;
     stopAutoSave();
@@ -339,6 +410,11 @@ class ProjectNotifier extends Notifier<Project> {
       final serialized = await serializer.deserialize(bytes);
       if (serialized == null) {
         AppLogger.e('Failed to deserialize project');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法打开项目：文件损坏或格式不支持')),
+          );
+        }
         return;
       }
 
@@ -352,11 +428,18 @@ class ProjectNotifier extends Notifier<Project> {
         }
         return t;
       }).toList();
+      final oldProjectId = state.id;
+      final newId = serialized.project.id;
+      _loadingProjectId = newId;
       state = serialized.project.copyWith(tracks: updatedTracks);
+      if (oldProjectId.isNotEmpty) {
+        await clearAutoSaveCacheFor(oldProjectId);
+      }
 
       for (final track in state.tracks) {
         if (track.type == TrackType.audio && track.audioFilePath != null) {
           audioService.loadTrack(track).then((dur) {
+            if (_loadingProjectId != newId) return;
             final updated = track.copyWith(duration: dur);
             state = state.copyWith(
               tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
@@ -368,6 +451,11 @@ class ProjectNotifier extends Notifier<Project> {
       AppLogger.i('Project loaded: ${state.name}');
     } catch (e) {
       AppLogger.e('Failed to open project', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('打开项目时发生未知错误')),
+        );
+      }
     }
   }
 
@@ -393,7 +481,7 @@ class ProjectNotifier extends Notifier<Project> {
         state = state.copyWith(
           tracks: state.tracks.map((t) => t.id == track.id ? updated : t).toList(),
         );
-        AppLogger.d('Track "${track.name}" duration: ${dur.toStringAsFixed(1)}s');
+        AppLogger.d('Track \"${track.name}\" duration: ${dur.toStringAsFixed(1)}s');
       });
     }
     AppLogger.i('Added audio track: ${track.name}');
@@ -424,7 +512,18 @@ class ProjectNotifier extends Notifier<Project> {
   Future<void> removeTrack(String trackId) async {
     _pushUndo();
     _markDirty();
-    await ref.read(audioServiceProvider).unloadTrack(trackId);
+    try {
+      await ref.read(audioServiceProvider).unloadTrack(trackId);
+    } catch (e) {
+      AppLogger.e('Failed to unload track', e);
+      // Roll back undo stack since removal failed
+      if (_undoStack.isNotEmpty) {
+        final prev = _undoStack.removeLast();
+        _isDirty = prev.isDirty;
+      }
+      _redoStack.clear();
+      return;
+    }
     final removedName = state.tracks.firstWhere((t) => t.id == trackId).name;
     state = state.copyWith(
       tracks: state.tracks.where((t) => t.id != trackId).toList(),
@@ -442,7 +541,7 @@ class ProjectNotifier extends Notifier<Project> {
       }).toList(),
     );
     ref.read(audioServiceProvider).updateTrackVolume(trackId, volume);
-    AppLogger.d('Track "$trackName" volume: ${(volume * 100).toInt()}%');
+    AppLogger.d('Track \"$trackName\" volume: ${(volume * 100).toInt()}%');
   }
 
   void updateTrackPan(String trackId, double pan) {
@@ -490,8 +589,8 @@ class ProjectNotifier extends Notifier<Project> {
         return t;
       }).toList(),
     );
-    _syncVolumes();
-    AppLogger.i('Track "${track.name}" ${newMuted ? "muted" : "unmuted"}');
+    ref.read(audioServiceProvider).setTrackMute(trackId, newMuted);
+    AppLogger.i('Track \"${track.name}\" ${newMuted ? "muted" : "unmuted"}');
   }
 
   void toggleTrackSolo(String trackId) {
@@ -504,19 +603,8 @@ class ProjectNotifier extends Notifier<Project> {
         return t;
       }).toList(),
     );
-    _syncVolumes();
-    AppLogger.i('Track "${track.name}" ${newSolo ? "solo" : "unsolo"}');
-  }
-
-  void _syncVolumes() {
-    final audio = ref.read(audioServiceProvider);
-    final hasSolo = state.hasSoloTrack;
-    for (final t in state.tracks) {
-      final effectiveVol = hasSolo
-          ? (t.isSolo ? t.volume : 0.0)
-          : (t.isMuted ? 0.0 : t.volume);
-      audio.updateTrackVolume(t.id, effectiveVol);
-    }
+    ref.read(audioServiceProvider).setTrackSolo(trackId, newSolo);
+    AppLogger.i('Track \"${track.name}\" ${newSolo ? "solo" : "unsolo"}');
   }
 
   void setTrackAudioFile(String trackId, String filePath) {
@@ -603,6 +691,7 @@ class ProjectNotifier extends Notifier<Project> {
     _isDirty = false;
     stopAutoSave();
     await ref.read(audioServiceProvider).unloadAll();
+    await clearAutoSaveCache();
     _currentFilePath = null;
     state = Project(id: _uuid.v4(), name: 'Untitled');
     AppLogger.i('New project created');
@@ -623,7 +712,8 @@ class ProjectNotifier extends Notifier<Project> {
         ),
       );
       if (result == 'save') {
-        await saveProject();
+        final ok = await saveProject(context);
+        if (!ok) return; // save failed, don't discard
       } else if (result != 'discard') {
         return; // cancelled
       }

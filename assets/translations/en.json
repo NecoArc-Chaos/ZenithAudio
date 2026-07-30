@@ -62,14 +62,17 @@
   "transport.pause": "Pause",
   "transport.stop": "Stop",
   "transport.record": "Record",
+  "transport.recordPermissionDenied": "Microphone permission denied",
   "transport.stopRec": "Stop Recording",
   "transport.skipStart": "Skip to Start",
   "transport.skipEnd": "Skip to End",
 
   "editor.emptyTitle": "Import audio to start editing",
   "editor.emptySubtitle": "Supports WAV, MP3, FLAC, AAC, OGG, M4A",
+  "browser.importAudio": "Import Audio...",
 
   "settings.title": "Settings",
+  "settings": "Settings",
   "settings.general": "General",
   "settings.theme": "Theme",
   "settings.theme.system": "System",
@@ -141,5 +144,9 @@
   "shortcut.redo": "Ctrl+Shift+Z",
   "shortcut.addTrack": "Ctrl+T",
   "shortcut.importAudio": "Ctrl+I",
-  "shortcut.importMidi": "Ctrl+Shift+I"
+  "shortcut.importMidi": "Ctrl+Shift+I",
+  "browser.importAudio": "Import Audio...",
+  "browser.imported": "Imported: ${name}",
+  "browser.addedInstrument": "Added instrument: ${name}",
+  "browser.noResults": "No results",
 }

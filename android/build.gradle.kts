@@ -1,3 +1,7 @@
+plugins {
+    kotlin("android") version "2.3.20" apply false
+}
+
 allprojects {
     repositories {
         google()
@@ -15,12 +19,12 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
-subprojects {
-    afterEvaluate {
-        val ext = extensions.findByName("android")
-        if (ext is com.android.build.api.dsl.CommonExtension) {
-            ext.compileSdk = 36
-        }
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.20")
     }
 }
 

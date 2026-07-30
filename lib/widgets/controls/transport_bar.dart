@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:app_settings/app_settings.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/theme_colors.dart';
 import '../../services/audio_service.dart';
@@ -27,6 +28,7 @@ class TransportBar extends ConsumerWidget {
     final recState = ref.watch(recordingProvider);
     final recElapsed = ref.watch(recordingElapsedProvider);
     final isRecording = recState == RecordingState.recording;
+    final permissionDenied = recState == RecordingState.permissionDenied;
     final wavProgress = ref.watch(wavGenerationProgressProvider);
     final cs = Theme.of(context).colorScheme;
 
@@ -83,23 +85,63 @@ class TransportBar extends ConsumerWidget {
           ),
           const SizedBox(width: 4),
           _TransportButton(
-            icon: isRecording ? Icons.stop_rounded : Icons.fiber_manual_record_rounded,
-            tooltip: isRecording ? 'transport.stopRec'.tr() : 'transport.record'.tr(),
-            size: 28, iconSize: 18,
-            onTap: () async {
-              final notifier = ref.read(recordingProvider.notifier);
-              if (isRecording) {
-                final path = await notifier.stopRecording();
-                if (path != null) {
-                  ref.read(projectProvider.notifier).addTrack(
-                    name: '录音_${DateTime.now().millisecondsSinceEpoch}',
-                    audioFilePath: path,
-                  );
-                }
-              } else {
-                await notifier.startRecording();
-              }
-            },
+            icon: isRecording
+                ? Icons.stop_rounded
+                : permissionDenied
+                    ? Icons.mic_off_rounded
+                    : Icons.fiber_manual_record_rounded,
+            tooltip: isRecording
+                ? 'transport.stopRec'.tr()
+                : permissionDenied
+                    ? 'transport.recordPermissionDenied'.tr()
+                    : 'transport.record'.tr(),
+            size: 28,
+            iconSize: 18,
+            onTap: permissionDenied
+                ? () {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('transport.recordPermissionDenied'.tr()),
+                          action: SnackBarAction(
+                            label: 'settings'.tr(),
+                            onPressed: () {
+                              AppSettings.openAppSettings();
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                : () async {
+                    final notifier = ref.read(recordingProvider.notifier);
+                    if (isRecording) {
+                      final path = await notifier.stopRecording();
+                      if (path != null) {
+                        ref.read(projectProvider.notifier).addTrack(
+                          name: '录音_${DateTime.now().millisecondsSinceEpoch}',
+                          audioFilePath: path,
+                        );
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('录音失败：无法停止或保存录音')),
+                        );
+                      }
+                    } else {
+                      final success = await notifier.startRecording();
+                      if (success == null && context.mounted) {
+                        final error = ref.read(recordingErrorProvider);
+                        final msg = switch (error) {
+                          'permission_denied' => '录音失败：麦克风权限被拒绝，请在系统设置中开启权限',
+                          'start_failed' => '录音失败：无法启动录音，请稍后重试',
+                          _ => '录音失败：请检查麦克风权限',
+                        };
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(msg)),
+                        );
+                      }
+                    }
+                  },
           ),
           const SizedBox(width: 16),
           if (isRecording)
