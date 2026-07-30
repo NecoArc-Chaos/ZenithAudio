@@ -85,17 +85,11 @@ jobs:
           if (Test-Path build/windows) { Get-ChildItem build/windows -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows directory" }
           Write-Host "=== x64 ==="
           if (Test-Path build/windows/x64) { Get-ChildItem build/windows/x64 -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows/x64 directory" }
-          Write-Host "=== Release ==="
-          if (Test-Path build/windows/x64/Release) { Get-ChildItem build/windows/x64/Release -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows/x64/Release directory" }
-          Write-Host "=== runner ==="
-          if (Test-Path build/windows/runner) { Get-ChildItem build/windows/runner -Recurse | Select-Object -ExpandProperty FullName } else { Write-Host "No build/windows/runner directory" }
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: |
-            build/windows/x64/Release/**
-            build/windows/runner/Release/**
+          path: build/windows/x64/release/**
           retention-days: 14
 
   build-macos:
