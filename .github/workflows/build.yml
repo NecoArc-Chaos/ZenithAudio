@@ -41,7 +41,7 @@ jobs:
             os: macos-latest
             flutter_target: ios
             artifact_name: ZenithAudio-ios
-            skip: ${{ !secrets.IOS_CERT_P12_BASE64 || !secrets.IOS_CERT_PASSWORD || !secrets.IOS_PROVISIONING_PROFILE_BASE64 || !secrets.IOS_PROVISIONING_PROFILE_UUID }}
+            skip: "${{ !secrets.IOS_CERT_P12_BASE64 || !secrets.IOS_CERT_PASSWORD || !secrets.IOS_PROVISIONING_PROFILE_BASE64 || !secrets.IOS_PROVISIONING_PROFILE_UUID }}"
 
     runs-on: ${{ matrix.os }}
 
@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
-        if: ${{ !matrix.skip }}
+        if: "${{ !matrix.skip }}"
         with:
           name: ${{ matrix.artifact_name }}
           path: |
